@@ -1073,6 +1073,18 @@
             appData.visits = appData.visits.filter(v => v.id !== visitId);
         }
 
+        // НОВАЯ КОНФИГУРАЦИЯ для синхронизации данных между устройствами
+const CLOUD_SYNC_CONFIG = {
+    // Используем JSONBin.io для бесплатного облачного хранилища
+    binId: '68ef4a80d0ea881f40a3d52f', // ID для хранилища пользователей (тот же что в user-script)
+    apiKey: '$2a$10$o0Vb2fBmb4Fs6.iOzhUgW.eGxkQqP.bXH7x2fjrlyLf.xFY68lXpG', // Ваш API ключ
+    baseUrl: 'https://api.jsonbin.io/v3/b',
+    enabled: true // Включить синхронизацию с облаком
+};
+
+let currentAdmin = null;
+let allUsers = [];
+
         // DOM элементы
         const loginScreen = document.getElementById('loginScreen');
         const appScreen = document.getElementById('appScreen');
