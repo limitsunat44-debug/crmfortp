@@ -908,6 +908,11 @@
     </div>
 
     <script>
+
+         const JSONBIN_CONFIG = {
+    BIN_ID: "68ef4a80d0ea881f40a3d52f",        // Например: "6712abc345def678"
+    MASTER_KEY: "$2a$10$o0Vb2fBmb4Fs6.iOzhUgW.eGxkQqP.bXH7x2fjrlyLf.xFY68lXpG"   // Например: "$2a$10$xyz..."
+};
         // Данные приложения (в памяти, вместо localStorage)
         let appData = {
             currentUser: null,
@@ -1664,12 +1669,7 @@
         window.confirmDeleteVisit = confirmDeleteVisit;
     </script>
 
-    <script>
-    const JSONBIN_CONFIG = {
-    BIN_ID: "68ef4a80d0ea881f40a3d52f",        // Например: "6712abc345def678"
-    MASTER_KEY: "$2a$10$o0Vb2fBmb4Fs6.iOzhUgW.eGxkQqP.bXH7x2fjrlyLf.xFY68lXpG"   // Например: "$2a$10$xyz..."
-};
-
+<script>
 // В САМОМ КОНЦЕ добавьте:
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Инициализируем синхронизацию...');
@@ -1688,6 +1688,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         alert('Работаем в офлайн режиме');
     }
 });
+</script>
 </script>
 </body>
 </html>
