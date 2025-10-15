@@ -595,6 +595,7 @@
           font-family: 'FKGroteskNeue';
           src: url('https://r2cdn.perplexity.ai/fonts/FKGroteskNeue.woff2') format('woff2');
         }
+       
     </style>
 </head>
 <body>
@@ -909,10 +910,18 @@
 
     <script>
 
-         const JSONBIN_CONFIG = {
-    BIN_ID: "68ef4a80d0ea881f40a3d52f",        // Например: "6712abc345def678"
-    MASTER_KEY: "$2a$10$o0Vb2fBmb4Fs6.iOzhUgW.eGxkQqP.bXH7x2fjrlyLf.xFY68lXpG"   // Например: "$2a$10$xyz..."
+        // Замените значениями из своего проекта
+const firebaseConfig = {
+  apiKey: "AIzaSyCDWbmHn0J1QLbTyxRiOyh2Vc8hpDVxZzY",
+  authDomain: "crmsync-341d8.firebaseapp.com",
+  projectId: "crmsync-341d8",
+  storageBucket: "crmsync-341d8.firebasestorage.app",
+  messagingSenderId: "973492245425",
+  appId: "1:973492245425:web:19070f466d968d50a62390"
 };
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
         // Данные приложения (в памяти, вместо localStorage)
         let appData = {
             currentUser: null,
@@ -1664,31 +1673,57 @@
             alert('Визит успешно добавлен!');
         }
 
+        // Добавление визита
+await db.collection("visits").add({
+    user: currentUser,
+    doctor: doctorData,
+    date: visitDate,
+    clinic: clinicName,
+    amount: amount,
+    status: status,
+    nextVisit: nextVisitDate,
+    comment: comment,
+    created: firebase.firestore.FieldValue.serverTimestamp()
+});
+
+// Получение визитов в реальном времени
+db.collection("visits")
+    .where("user", "==", currentUser)
+    .onSnapshot(snapshot => {
+        let visits = [];
+        snapshot.forEach(doc => visits.push({id: doc.id, ...doc.data()}));
+        // Вызывайте обновление списка визитов на экране
+    });
+
+
         // Глобальные функции для обработчиков событий
         window.editVisit = editVisit;
         window.confirmDeleteVisit = confirmDeleteVisit;
     </script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
 
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyCDWbmHn0J1QLbTyxRiOyh2Vc8hpDVxZzY",
+    authDomain: "crmsync-341d8.firebaseapp.com",
+    projectId: "crmsync-341d8",
+    storageBucket: "crmsync-341d8.firebasestorage.app",
+    messagingSenderId: "973492245425",
+    appId: "1:973492245425:web:19070f466d968d50a62390",
+    measurementId: "G-XGE1ZYQ4SM"
+  };
 
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
 </script>
-document.addEventListener('DOMContentLoaded', async () => {
-  console.log('DOM готов, начинаю инициализацию синхронизации');
-  try {
-    const ok = await initializeSync();
-    if (ok) {
-      console.log('✅ initializeSync() успешно выполнен');
-      // Пример обновления списка визитов:
-      if (typeof renderVisits === 'function') {
-        renderVisits(getVisitsSync(currentUser));
-      }
-    } else {
-      console.error('❌ initializeSync() вернул false');
-    }
-  } catch (err) {
-    console.error('❌ Ошибка в initializeSync():', err);
-  }
-});
-</script>
-    
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore.js"></script>
 </body>
 </html>
