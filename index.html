@@ -913,10 +913,9 @@
     </div>
 
     <script>
-      
-
-        const JSONBIN_API_KEY = '$2a$10$o0Vb2fBmb4Fs6.iOzhUgW.eGxkQqP.bXH7x2fjrlyLf.xFY68lXpG';
-        const BIN_ID = '68ef4a80d0ea881f40a3d52f';
+     
+        const JSONBIN_API_KEY = '$2a$10$Jpx0Jug059Ukmj73SwBxtuA8Dhd0qGt9tjyPOT7naAHEq1yApLZWm';
+const BIN_ID = '68ef7a4bae596e708f14f62d';
 
 async function loadVisitsFromJsonBin() {
   const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
@@ -931,6 +930,18 @@ async function loadVisitsFromJsonBin() {
   }
   return [];
 }
+
+async function saveVisitsToJsonBin(visits) {
+  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+    method: 'PUT',
+    headers: {
+      'X-API-KEY': JSONBIN_API_KEY,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(visits)
+  });
+}
+
       // Данные приложения (в памяти, вместо localStorage)
         let appData = {
             currentUser: null,
