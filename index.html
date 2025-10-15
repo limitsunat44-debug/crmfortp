@@ -1671,24 +1671,22 @@
 
 
 </script>
-<script>
-// В САМОМ КОНЦЕ добавьте:
-document.addEventListener('DOMContentLoaded', async function() {
-    console.log('Инициализируем синхронизацию...');
-    
-    try {
-        await initializeSync();
-        console.log('✅ Синхронизация готова!');
-        
-        // Обновляем списки если есть функции
-        if (typeof renderVisits === 'function') {
-            renderVisits(getVisitsSync(currentUser));
-        }
-        
-    } catch (error) {
-        console.error('Ошибка синхронизации:', error);
-        alert('Работаем в офлайн режиме');
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('DOM готов, начинаю инициализацию синхронизации');
+  try {
+    const ok = await initializeSync();
+    if (ok) {
+      console.log('✅ initializeSync() успешно выполнен');
+      // Пример обновления списка визитов:
+      if (typeof renderVisits === 'function') {
+        renderVisits(getVisitsSync(currentUser));
+      }
+    } else {
+      console.error('❌ initializeSync() вернул false');
     }
+  } catch (err) {
+    console.error('❌ Ошибка в initializeSync():', err);
+  }
 });
 </script>
     
