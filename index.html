@@ -913,50 +913,33 @@
     </div>
 
     <script>
-
-        // Пример универсального модуля синхронизации визитов через облако (на примере JSONBin)
-const API_KEY = '$2a$10$o0Vb2fBmb4Fs6.iOzhUgW.eGxkQqP.bXH7x2fjrlyLf.xFY68lXpG'; // Получите бесплатно на jsonbin.io
-const BIN_ID = '68ef4a80d0ea881f40a3d52f'; // После создания bin получите его ID
-
-// Получение всех визитов из бэкенда
-async function fetchVisits() {
-  const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-    headers: {
-      'X-Master-Key': API_KEY
-    }
+const BIN_ID = "68ef4a80d0ea881f40a3d52f";
+const API_KEY = "$2a$10$o0Vb2fBmb4Fs6.iOzhUgW.eGxkQqP.bXH7x2fjrlyLf.xFY68lXpG";
+const BASE_URL = "https://api.jsonbin.io/v3/b/";
+      
+// Загрузка визитов при входе
+async function loadVisits() {
+  const res = await fetch(`${BASE_URL}${BIN_ID}/latest`, {
+    headers: { "X-Master-Key": API_KEY }
   });
-  const data = await response.json();
-  // Здесь data.record.visits - ожидаемый массив визитов
-  return data.record.visits || [];
+  const data = await res.json();
+  localStorage.setItem("visits", JSON.stringify(data.record.visits || []));
+  renderVisits();
 }
 
-// Сохранение (синхронизация) всех визитов в облако
+// Сохранение визитов (при добавлении нового)
 async function saveVisits(visits) {
-  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-    method: 'PUT',
+  localStorage.setItem("visits", JSON.stringify(visits));
+  await fetch(`${BASE_URL}${BIN_ID}`, {
+    method: "PUT",
     headers: {
-      'Content-Type': 'application/json',
-      'X-Master-Key': API_KEY,
+      "Content-Type": "application/json",
+      "X-Master-Key": API_KEY
     },
     body: JSON.stringify({ visits })
   });
 }
 
-// Используйте эти функции вместо localStorage для загрузки и сохранения всех визитов
-// Тогда посещения будут одинаково видны с любого устройства после обновления страницы
-
-// Пример использования:
-async function loadAndRenderVisits() {
-  const visits = await fetchVisits();
-  renderVisitsOnPage(visits); // функция отображения визитов
-}
-
-async function addVisit(newVisit) {
-  const visits = await fetchVisits();
-  visits.push(newVisit);
-  await saveVisits(visits);
-  // После этого вызовите loadAndRenderVisits() для обновления UI
-}
 
         // Данные приложения (в памяти, вместо localStorage)
         let appData = {
