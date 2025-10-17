@@ -1168,7 +1168,7 @@
 
 
 
-        let currentUser = null;
+        let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null
         let selectedDoctor = null;
         let editingVisitId = null;
         let isCompactView = false;
@@ -1224,6 +1224,7 @@
             
             if (user) {
                 currentUser = user;
+				localStorage.setItem('currentUser', JSON.stringify(user));
                 showNotification('✅ Добро пожаловать!', 'success');
                 showDashboard();
                 loadData();
