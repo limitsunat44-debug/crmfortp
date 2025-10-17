@@ -931,7 +931,7 @@
                 
                 <div class="dashboard-grid">
                     <!-- Карточка 1: Баланс торгового представителя -->
-                    <div class="dashboard-card orange">
+                    <div class="dashboard-card orange" id="dashboardCard1">
                         <div class="dashboard-card-header">
                             <div class="dashboard-card-title">Остаток на руках</div>
                             <div class="dashboard-card-icon">💰</div>
@@ -942,7 +942,7 @@
                     </div>
 
                     <!-- Карточка 2: Всего оплачено -->
-                    <div class="dashboard-card purple">
+                    <div class="dashboard-card purple" id="dashboardCard2">
                         <div class="dashboard-card-header">
                             <div class="dashboard-card-title">Оплачено врачам</div>
                             <div class="dashboard-card-icon">💳</div>
@@ -952,7 +952,7 @@
                     </div>
 
                     <!-- Карточка 3: Визитов за месяц -->
-                    <div class="dashboard-card pink">
+                    <div class="dashboard-card pink" id="dashboardCard3">
                         <div class="dashboard-card-header">
                             <div class="dashboard-card-title">Визитов за месяц</div>
                             <div class="dashboard-card-icon">📅</div>
@@ -962,7 +962,7 @@
                     </div>
 
                     <!-- Карточка 4: Уникальных врачей -->
-                    <div class="dashboard-card teal">
+                    <div class="dashboard-card teal" id="dashboardCard4">
                         <div class="dashboard-card-header">
                             <div class="dashboard-card-title">Уникальных врачей</div>
                             <div class="dashboard-card-icon">👨‍⚕️</div>
@@ -1251,7 +1251,7 @@
             document.getElementById('userInfo').textContent = `${currentUser.name} (${currentUser.role === 'admin' ? 'Администратор' : 'Торговый представитель'})`;
             
             // Показать Dashboard только для администраторов
-            if (currentUser.role === 'admin') {
+            if (currentUser.role === 'admin' || currentUser.role === 'salesrep') {
                 document.getElementById('adminDashboard').style.display = 'block';
                 updateDashboard();
             } else {
@@ -1261,11 +1261,15 @@
 
         // Обновление Dashboard
         function updateDashboard() {
-            if (currentUser.role !== 'admin') return;
+            if (!currentUser) return;
 
             // 1. Баланс торгового представителя
-            const balance = appData.salesRepBalance || 0;
-            document.getElementById('balanceValue').textContent = balance.toFixed(2);
+          //  const balance = appData.salesRepBalance || 0;
+            // document.getElementById('balanceValue').textContent = balance.toFixed(2);//
+const editBalanceBtn = document.getElementById('editBalanceBtn');
+if (editBalanceBtn) {
+    editBalanceBtn.style.display = currentUser.role === 'admin' ? 'block' : 'none';
+}
 
             // 2. Всего оплачено
             const totalPaid = appData.visits.reduce((sum, visit) => sum + (visit.amount || 0), 0);
@@ -1283,6 +1287,31 @@
             // 4. Уникальные врачи (к которым сходили)
             const uniqueDoctors = new Set(appData.visits.map(visit => visit.doctorId));
             document.getElementById('uniqueDoctorsValue').textContent = uniqueDoctors.size;
+			if (currentUser.role === 'salesrep') {
+    // Показываем только карточку с балансом
+    document.getElementById('dashboardCard1').style.display = 'block';
+    document.getElementById('dashboardCard2').style.display = 'none';
+    document.getElementById('dashboardCard3').style.display = 'none';
+    document.getElementById('dashboardCard4').style.display = 'none';
+    
+    // Скрываем кнопку редактирования
+    const editBalanceBtn = document.getElementById('editBalanceBtn');
+    if (editBalanceBtn) {
+        editBalanceBtn.style.display = 'none';
+    }
+} else if (currentUser.role === 'admin') {
+    // Для админов показываем все карточки
+    document.getElementById('dashboardCard1').style.display = 'block';
+    document.getElementById('dashboardCard2').style.display = 'block';
+    document.getElementById('dashboardCard3').style.display = 'block';
+    document.getElementById('dashboardCard4').style.display = 'block';
+    
+    // Показываем кнопку редактирования
+    const editBalanceBtn = document.getElementById('editBalanceBtn');
+    if (editBalanceBtn) {
+        editBalanceBtn.style.display = 'block';
+    }
+}
         }
 
         // Модальное окно редактирования баланса
