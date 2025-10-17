@@ -1264,8 +1264,8 @@
             if (!currentUser) return;
 
             // 1. Баланс торгового представителя
-          //  const balance = appData.salesRepBalance || 0;
-            // document.getElementById('balanceValue').textContent = balance.toFixed(2);//
+            const balance = appData.salesRepBalance || 0;
+             document.getElementById('balanceValue').textContent = balance.toFixed(2);
 const editBalanceBtn = document.getElementById('editBalanceBtn');
 if (editBalanceBtn) {
     editBalanceBtn.style.display = currentUser.role === 'admin' ? 'block' : 'none';
