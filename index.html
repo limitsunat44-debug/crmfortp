@@ -1,0 +1,2941 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM Система</title>
+    <style>
+        :root {
+            /* Primitive Color Tokens */
+            --color-white: rgba(255, 255, 255, 1);
+            --color-black: rgba(0, 0, 0, 1);
+            --color-cream-50: rgba(252, 252, 249, 1);
+            --color-cream-100: rgba(255, 255, 253, 1);
+            --color-gray-200: rgba(245, 245, 245, 1);
+            --color-gray-300: rgba(167, 169, 169, 1);
+            --color-gray-400: rgba(119, 124, 124, 1);
+            --color-slate-500: rgba(98, 108, 113, 1);
+            --color-brown-600: rgba(94, 82, 64, 1);
+            --color-charcoal-700: rgba(31, 33, 33, 1);
+            --color-charcoal-800: rgba(38, 40, 40, 1);
+            --color-slate-900: rgba(19, 52, 59, 1);
+            --color-teal-300: rgba(50, 184, 198, 1);
+            --color-teal-400: rgba(45, 166, 178, 1);
+            --color-teal-500: rgba(33, 128, 141, 1);
+            --color-teal-600: rgba(29, 116, 128, 1);
+            --color-teal-700: rgba(26, 104, 115, 1);
+            --color-teal-800: rgba(41, 150, 161, 1);
+            --color-red-400: rgba(255, 84, 89, 1);
+            --color-red-500: rgba(192, 21, 47, 1);
+            --color-orange-400: rgba(230, 129, 97, 1);
+            --color-orange-500: rgba(168, 75, 47, 1);
+
+            /* Custom application colors */
+            --primary-color: #2196F3;
+            --success-color: #4CAF50;
+            --error-color: #F44336;
+            --background-color: #F5F5F5;
+            --text-color: #212121;
+            --card-bg: #FFFFFF;
+            --border-color: #E0E0E0;
+
+            /* Dashboard gradient colors */
+            --gradient-orange: linear-gradient(135deg, #FF9A56 0%, #FF6B6B 100%);
+            --gradient-purple: linear-gradient(135deg, #A855F7 0%, #6366F1 100%);
+            --gradient-pink: linear-gradient(135deg, #EC4899 0%, #A855F7 100%);
+            --gradient-teal: linear-gradient(135deg, #14B8A6 0%, #10B981 100%);
+
+            /* Spacing */
+            --space-4: 4px;
+            --space-8: 8px;
+            --space-12: 12px;
+            --space-16: 16px;
+            --space-20: 20px;
+            --space-24: 24px;
+            --space-32: 32px;
+
+            /* Typography */
+            --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-size-sm: 12px;
+            --font-size-base: 14px;
+            --font-size-lg: 16px;
+            --font-size-xl: 18px;
+            --font-size-2xl: 20px;
+            --font-size-3xl: 24px;
+            --font-size-4xl: 32px;
+
+            /* Border Radius */
+            --radius-sm: 4px;
+            --radius-base: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+
+            /* Shadows */
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family-base);
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--space-16);
+        }
+
+        .page {
+            display: none;
+            min-height: 100vh;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .header {
+            background: var(--primary-color);
+            color: white;
+            padding: var(--space-16);
+            box-shadow: var(--shadow-md);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header h1 {
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: var(--space-12);
+            align-items: center;
+        }
+
+        .user-info {
+            font-size: var(--font-size-sm);
+        }
+
+        /* Dashboard Styles */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-20);
+            margin-bottom: var(--space-32);
+        }
+
+        .dashboard-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-xl);
+            padding: var(--space-24);
+            position: relative;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            transition: transform 0.2s;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .dashboard-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+
+        .dashboard-card.orange::before {
+            background: var(--gradient-orange);
+        }
+
+        .dashboard-card.purple::before {
+            background: var(--gradient-purple);
+        }
+
+        .dashboard-card.pink::before {
+            background: var(--gradient-pink);
+        }
+
+        .dashboard-card.teal::before {
+            background: var(--gradient-teal);
+        }
+
+        .dashboard-card.blue::before {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+        }
+
+        .dashboard-card.green::before {
+            background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+        }
+
+        .dashboard-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--space-16);
+        }
+
+        .dashboard-card-title {
+            font-size: var(--font-size-sm);
+            color: #666;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .dashboard-card-icon {
+            font-size: var(--font-size-2xl);
+            opacity: 0.3;
+        }
+
+        .dashboard-card-value {
+            font-size: var(--font-size-4xl);
+            font-weight: 700;
+            color: var(--text-color);
+            margin-bottom: var(--space-8);
+        }
+
+        .dashboard-card-label {
+            font-size: var(--font-size-sm);
+            color: #666;
+        }
+
+        .dashboard-card-edit {
+            margin-top: var(--space-12);
+            padding: var(--space-8) var(--space-12);
+            background: #f0f0f0;
+            border: none;
+            border-radius: var(--radius-base);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            transition: background 0.2s;
+        }
+
+        .dashboard-card-edit:hover {
+            background: #e0e0e0;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-20);
+        }
+
+        .section-title {
+            font-size: var(--font-size-2xl);
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        /* Date Sections */
+        .date-section {
+            margin-bottom: var(--space-32);
+        }
+
+        .date-header {
+            padding: var(--space-16);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-16);
+            box-shadow: var(--shadow-md);
+        }
+
+        .date-title {
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+            margin-bottom: var(--space-4);
+        }
+
+        .date-stats {
+            display: flex;
+            gap: var(--space-24);
+            font-size: var(--font-size-sm);
+            opacity: 0.9;
+        }
+
+        .date-stat {
+            display: flex;
+            align-items: center;
+            gap: var(--space-8);
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: var(--space-12) var(--space-20);
+            border-radius: var(--radius-base);
+            cursor: pointer;
+            font-size: var(--font-size-base);
+            font-weight: 500;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            gap: var(--space-8);
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+        }
+
+        .btn-error {
+            background: var(--error-color);
+        }
+
+        .btn-sm {
+            padding: var(--space-8) var(--space-16);
+            font-size: var(--font-size-sm);
+            min-height: 36px;
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        /* View Toggle Button */
+        .view-toggle {
+            background: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: var(--space-8) var(--space-16);
+            border-radius: var(--radius-base);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            display: flex;
+            align-items: center;
+            gap: var(--space-8);
+            transition: all 0.2s;
+        }
+
+        .view-toggle:hover {
+            background: #f8f9fa;
+        }
+
+        .view-toggle.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: var(--space-20);
+            border-bottom: 1px solid var(--border-color);
+            background: #FAFAFA;
+        }
+
+        .card-body {
+            padding: var(--space-20);
+        }
+
+        .form-group {
+            margin-bottom: var(--space-20);
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: var(--space-8);
+            font-weight: 500;
+            font-size: var(--font-size-sm);
+            color: var(--text-color);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: var(--space-12);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-base);
+            font-size: var(--font-size-base);
+            font-family: var(--font-family-base);
+            background: var(--card-bg);
+            min-height: 44px;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            margin: var(--space-16);
+        }
+
+        .login-header {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: var(--space-32);
+        }
+
+        .visits-grid {
+            display: grid;
+            gap: var(--space-16);
+        }
+
+        .visit-card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+
+        .visit-card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Компактный вид */
+        .visit-card.compact {
+            padding: var(--space-12) var(--space-16);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--card-bg);
+            border-radius: var(--radius-base);
+            min-height: 60px;
+        }
+
+        .visit-card.compact .visit-header {
+            padding: 0;
+            background: none;
+            border-bottom: none;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: var(--space-12);
+        }
+
+        .visit-card.compact .visit-header h3 {
+            margin: 0;
+            font-size: var(--font-size-base);
+            font-weight: 500;
+        }
+
+        .visit-card.compact .visit-header small {
+            color: #666;
+            font-size: var(--font-size-sm);
+        }
+
+        .visit-card.compact .compact-info {
+            display: flex;
+            align-items: center;
+            gap: var(--space-16);
+            font-size: var(--font-size-sm);
+        }
+
+        .visit-card.compact .compact-datetime {
+            color: #666;
+            min-width: 120px;
+        }
+
+        .visit-card.compact .compact-clinic {
+            color: var(--text-color);
+            min-width: 100px;
+        }
+
+        .visit-card.compact .compact-amount {
+            font-weight: 500;
+            color: var(--success-color);
+            min-width: 80px;
+        }
+
+        .visit-card.compact .status-badge {
+            margin: 0;
+            padding: var(--space-4) var(--space-8);
+            font-size: var(--font-size-sm);
+            border-radius: var(--radius-sm);
+        }
+
+        .visit-card.compact .visit-body {
+            display: none;
+        }
+
+        .visit-card.compact .visit-actions {
+            display: flex;
+            gap: var(--space-4);
+            margin-left: var(--space-12);
+        }
+
+        .visit-card.compact .visit-actions .btn {
+            padding: var(--space-4) var(--space-8);
+            font-size: var(--font-size-sm);
+            min-height: 32px;
+        }
+
+        /* Стандартный вид */
+        .visit-header {
+            padding: var(--space-16);
+            background: #FAFAFA;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .visit-body {
+            padding: var(--space-16);
+        }
+
+        .visit-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--space-12);
+            margin-bottom: var(--space-16);
+        }
+
+        .visit-meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-4);
+        }
+
+        .visit-meta-label {
+            font-size: var(--font-size-sm);
+            color: #666;
+            font-weight: 500;
+        }
+
+        .visit-meta-value {
+            font-size: var(--font-size-base);
+            font-weight: 500;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-4);
+            padding: var(--space-4) var(--space-8);
+            border-radius: var(--radius-base);
+            font-size: var(--font-size-sm);
+            font-weight: 500;
+        }
+
+        .status-badge.satisfied {
+            background: rgba(76, 175, 80, 0.1);
+            color: var(--success-color);
+        }
+
+        .status-badge.unsatisfied {
+            background: rgba(244, 67, 54, 0.1);
+            color: var(--error-color);
+        }
+
+        .visit-actions {
+            display: flex;
+            gap: var(--space-8);
+            justify-content: flex-end;
+            padding-top: var(--space-16);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: var(--space-16);
+            align-items: center;
+            margin-bottom: var(--space-24);
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .filters {
+            display: flex;
+            gap: var(--space-12);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-16);
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: var(--space-20);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #FAFAFA;
+        }
+
+        .modal-body {
+            padding: var(--space-20);
+        }
+
+        .modal-footer {
+            padding: var(--space-20);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: var(--space-12);
+            justify-content: flex-end;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: var(--font-size-2xl);
+            cursor: pointer;
+            padding: var(--space-4);
+            color: #666;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: var(--space-32);
+            color: #666;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .notification {
+            position: fixed;
+            top: var(--space-20);
+            right: var(--space-20);
+            padding: var(--space-16) var(--space-20);
+            border-radius: var(--radius-base);
+            color: white;
+            z-index: 1100;
+            transform: translateX(100%);
+            transition: transform 0.3s;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: var(--success-color);
+        }
+
+        .notification.error {
+            background: var(--error-color);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--space-32);
+            color: #666;
+        }
+
+        .empty-state-icon {
+            font-size: var(--font-size-3xl);
+            margin-bottom: var(--space-16);
+            opacity: 0.5;
+        }
+
+        .status-toggle {
+            display: flex;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-base);
+            overflow: hidden;
+        }
+
+        .status-option {
+            flex: 1;
+            padding: var(--space-12);
+            text-align: center;
+            cursor: pointer;
+            background: var(--card-bg);
+            border: none;
+            font-size: var(--font-size-base);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-8);
+        }
+
+        .status-option.active {
+            color: white;
+        }
+
+        .status-option.satisfied.active {
+            background: var(--success-color);
+        }
+
+        .status-option.unsatisfied.active {
+            background: var(--error-color);
+        }
+
+        .currency-input {
+            position: relative;
+        }
+
+        .currency-input::after {
+            content: "сом.";
+            position: absolute;
+            right: var(--space-12);
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+            font-size: var(--font-size-sm);
+            pointer-events: none;
+        }
+
+        .currency-input input {
+            padding-right: 50px;
+        }
+
+        .doctor-selector {
+            position: relative;
+        }
+
+        .doctor-search {
+            position: relative;
+        }
+
+        .doctor-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 var(--radius-base) var(--radius-base);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10;
+            display: none;
+        }
+
+        .doctor-dropdown.active {
+            display: block;
+        }
+
+        .doctor-option {
+            padding: var(--space-12);
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+
+        .doctor-option:hover {
+            background-color: #f8f9fa;
+        }
+
+        .doctor-option:last-child {
+            border-bottom: none;
+        }
+
+        .doctor-code {
+            color: #666;
+            font-size: var(--font-size-sm);
+        }
+
+        /* ===== Стили для таблицы балансов всех ТП (только для администраторов) ===== */
+        .rep-balances-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .rep-balances-table th {
+            background-color: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .rep-balances-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .rep-balances-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .balance-highlight {
+            font-weight: 700;
+            color: #1976D2;
+        }
+
+        /* ===== Стили для раздела управления сотрудниками ===== */
+        .rep-selector {
+            background: #E3F2FD;
+            border: 1px solid #90CAF9;
+            border-radius: var(--radius-base);
+            padding: var(--space-12) var(--space-16);
+            margin-bottom: var(--space-20);
+            display: flex;
+            align-items: center;
+            gap: var(--space-12);
+            flex-wrap: wrap;
+        }
+
+        .rep-selector label {
+            font-weight: 600;
+            color: #1565C0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: var(--space-8);
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: var(--space-12);
+                align-items: stretch;
+            }
+
+            .header-actions {
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filters {
+                justify-content: space-between;
+            }
+
+            .visit-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .visit-actions {
+                justify-content: center;
+            }
+
+            .modal-content {
+                margin: var(--space-8);
+                max-height: calc(100vh - 32px);
+            }
+
+            .visit-card.compact {
+                flex-direction: column;
+                align-items: stretch;
+                padding: var(--space-12);
+                gap: var(--space-8);
+            }
+
+            .visit-card.compact .visit-header {
+                justify-content: space-between;
+            }
+
+            .visit-card.compact .compact-info {
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .date-stats {
+                flex-direction: column;
+                gap: var(--space-8);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: var(--font-size-lg);
+            }
+
+            .btn {
+                padding: var(--space-8) var(--space-12);
+                font-size: var(--font-size-sm);
+            }
+
+            .visit-actions {
+                flex-direction: column;
+            }
+        }
+
+        /* Стили для отчетов о продажах врачей */
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .table th {
+            background-color: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+    </style>
+
+    <!-- SheetJS library for Excel parsing -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <!-- Страница авторизации -->
+    <div id="loginPage" class="page active">
+        <div class="login-container">
+            <div class="login-card card">
+                <div class="card-body">
+                    <div class="login-header">
+                        <h1>CRM Система</h1>
+                        <p>Для торговых представителей</p>
+                    </div>
+                    <form id="loginForm">
+                        <div class="form-group">
+                            <label class="form-label">Логин</label>
+                            <input type="text" class="form-control" id="loginInput" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Пароль</label>
+                            <input type="password" class="form-control" id="passwordInput" required>
+                        </div>
+                        <button type="submit" class="btn btn-full">Войти</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Главная страница -->
+    <div id="dashboardPage" class="page">
+        <header class="header">
+            <div class="header-content">
+                <h1>📊 CRM Система</h1>
+                <div class="header-actions">
+                    <span class="user-info" id="userInfo"></span>
+                    <button class="btn btn-sm btn-secondary" onclick="refreshData()">🔄 Обновить</button>
+                    <button class="btn btn-sm btn-primary" id="doctorSalesBtn" onclick="showDoctorSalesSection()" style="display: none;">
+                        📊 Продажи врачей
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="manageRepsBtn" onclick="showManageRepsSection()" style="display: none;">
+                        👥 Сотрудники
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="backToDashboardBtn" onclick="backToDashboard()" style="display: none;">
+                        ← Назад
+                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="logout()">Выход</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="container">
+
+            <!-- ===== Dashboard ===== -->
+            <div id="adminDashboard" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">Dashboard</h2>
+                </div>
+
+                <!-- Для администратора: выбор торгового представителя для просмотра -->
+                <div id="repSelectorBar" class="rep-selector" style="display: none;">
+                    <label>👁 Просматриваете данные:</label>
+                    <select class="form-control" id="repSelectFilter" style="width: auto; min-width: 220px;" onchange="onRepFilterChange()">
+                        <option value="">— все визиты —</option>
+                    </select>
+                </div>
+
+                <div class="dashboard-grid">
+                    <!-- Карточка 1: Баланс торгового представителя -->
+                    <div class="dashboard-card orange" id="dashboardCard1">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title" id="balanceCardTitle">Остаток на руках</div>
+                            <div class="dashboard-card-icon">💰</div>
+                        </div>
+                        <div class="dashboard-card-value" id="balanceValue">0</div>
+                        <div class="dashboard-card-label">сомони</div>
+                        <button class="dashboard-card-edit" onclick="showEditBalanceModal()" id="editBalanceBtn" style="display: none;">✏️ Редактировать</button>
+                    </div>
+
+                    <!-- Карточка 2: Всего оплачено -->
+                    <div class="dashboard-card purple" id="dashboardCard2">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Оплачено врачам</div>
+                            <div class="dashboard-card-icon">💳</div>
+                        </div>
+                        <div class="dashboard-card-value" id="totalPaidValue">0</div>
+                        <div class="dashboard-card-label">сомони</div>
+                    </div>
+
+                    <!-- Карточка 3: Визитов за месяц -->
+                    <div class="dashboard-card pink" id="dashboardCard3">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Визитов за месяц</div>
+                            <div class="dashboard-card-icon">📅</div>
+                        </div>
+                        <div class="dashboard-card-value" id="monthVisitsValue">0</div>
+                        <div class="dashboard-card-label">визитов</div>
+                    </div>
+
+                    <!-- Карточка 4: Уникальных врачей -->
+                    <div class="dashboard-card teal" id="dashboardCard4">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">Уникальных врачей</div>
+                            <div class="dashboard-card-icon">👨‍⚕️</div>
+                        </div>
+                        <div class="dashboard-card-value" id="uniqueDoctorsValue">0</div>
+                        <div class="dashboard-card-label">врачей</div>
+                    </div>
+                </div>
+
+                <!-- Блок балансов всех ТП (только для администратора) -->
+                <div id="allBalancesBlock" style="display: none; margin-bottom: 32px;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 style="margin: 0;">💰 Балансы торговых представителей</h3>
+                        </div>
+                        <div class="card-body">
+                            <table class="rep-balances-table">
+                                <thead>
+                                    <tr>
+                                        <th>Логин</th>
+                                        <th>Имя</th>
+                                        <th>Баланс (сомони)</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allBalancesBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Раздел управления сотрудниками (только для администраторов) ===== -->
+            <div id="manageRepsSection" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">👥 Управление сотрудниками</h2>
+                </div>
+
+                <div class="card" style="margin-bottom: 24px;">
+                    <div class="card-header">
+                        <h3 style="margin: 0;">Список пользователей</h3>
+                    </div>
+                    <div class="card-body">
+                        <table class="rep-balances-table">
+                            <thead>
+                                <tr>
+                                    <th>Логин</th>
+                                    <th>Имя</th>
+                                    <th>Роль</th>
+                                    <th>Баланс (сомони)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="manageUsersBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 style="margin: 0;">➕ Создать нового сотрудника</h3>
+                    </div>
+                    <div class="card-body">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Логин *</label>
+                                <input type="text" class="form-control" id="newRepLogin" placeholder="уникальный логин">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Имя *</label>
+                                <input type="text" class="form-control" id="newRepName" placeholder="Фамилия Имя">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Пароль *</label>
+                                <input type="text" class="form-control" id="newRepPassword" placeholder="пароль">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label class="form-label">Роль *</label>
+                                <select class="form-control" id="newRepRole">
+                                    <option value="salesrep">Торговый представитель</option>
+                                    <option value="admin">Администратор</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="margin-top: 16px;">
+                            <button class="btn btn-success" onclick="createNewRep()">➕ Создать сотрудника</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Раздел продаж врачей (только для администраторов) ===== -->
+            <div id="doctorSalesSection" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">📊 Отчеты о продажах врачей</h2>
+                    <div class="header-actions">
+                        <input type="file" id="salesFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleSalesFileUpload(event)">
+                        <button class="btn btn-primary" onclick="document.getElementById('salesFileInput').click()">
+                            📤 Загрузить таблицу
+                        </button>
+                        <button class="btn btn-success" onclick="exportSalesData()">
+                            📥 Экспорт данных
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Фильтры -->
+                <div class="filters" style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                        <div class="form-group" style="margin: 0;">
+                            <label style="margin-bottom: 5px; display: block; font-weight: 500;">Период:</label>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="date" id="salesDateFrom" class="form-control" style="width: 150px;">
+                                <span style="line-height: 38px;">—</span>
+                                <input type="date" id="salesDateTo" class="form-control" style="width: 150px;">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label style="margin-bottom: 5px; display: block; font-weight: 500;">Поиск врача:</label>
+                            <input type="text" id="salesDoctorSearch" class="form-control" placeholder="Введите имя врача" style="width: 250px;">
+                        </div>
+                        <div style="margin-top: 27px;">
+                            <button class="btn btn-primary" onclick="filterSalesData()">🔍 Применить фильтр</button>
+                            <button class="btn btn-secondary" onclick="resetSalesFilters()">🔄 Сбросить</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Статистика -->
+                <div class="dashboard-grid" style="margin-bottom: 30px;">
+                    <div class="dashboard-card blue">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">🏆 Лучший врач (текущий период)</div>
+                        </div>
+                        <div class="dashboard-card-value" id="topDoctorName" style="font-size: 1.2em;">—</div>
+                        <div class="dashboard-card-label" id="topDoctorAmount">0 сомони</div>
+                    </div>
+                    <div class="dashboard-card green">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">👑 Лучший врач за все время</div>
+                        </div>
+                        <div class="dashboard-card-value" id="allTimeDoctorName" style="font-size: 1.2em;">—</div>
+                        <div class="dashboard-card-label" id="allTimeDoctorAmount">0 сомони</div>
+                    </div>
+                    <div class="dashboard-card purple">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">📈 Всего продаж</div>
+                        </div>
+                        <div class="dashboard-card-value" id="totalSalesAmount">0</div>
+                        <div class="dashboard-card-label">сомони</div>
+                    </div>
+                    <div class="dashboard-card orange">
+                        <div class="dashboard-card-header">
+                            <div class="dashboard-card-title">👨‍⚕️ Количество врачей</div>
+                        </div>
+                        <div class="dashboard-card-value" id="totalDoctorsCount">0</div>
+                        <div class="dashboard-card-label">врачей</div>
+                    </div>
+                </div>
+
+                <!-- Топ 10 -->
+                <div class="card" style="margin-bottom: 30px;">
+                    <div class="card-header">
+                        <h3 style="margin: 0;">🌟 Топ 10 врачей за выбранный период</h3>
+                    </div>
+                    <div class="card-body">
+                        <div style="overflow-x: auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>№</th>
+                                        <th>Врач</th>
+                                        <th>Сумма продаж</th>
+                                        <th>Количество записей</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="top10Body">
+                                    <tr>
+                                        <td colspan="4" style="text-align: center; padding: 40px;">
+                                            Загрузите данные для отображения статистики
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Таблица всех продаж -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 style="margin: 0;">📋 Все продажи</h3>
+                    </div>
+                    <div class="card-body">
+                        <div style="overflow-x: auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Дата</th>
+                                        <th>Врач</th>
+                                        <th>Сумма</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salesTableBody">
+                                    <tr>
+                                        <td colspan="4" style="text-align: center; padding: 40px;">
+                                            Нет данных. Загрузите таблицу продаж.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Модальное окно редактирования записи продаж -->
+            <div id="editSaleModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Редактировать запись</h3>
+                        <span class="close-btn" onclick="hideEditSaleModal()">&times;</span>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editSaleForm">
+                            <input type="hidden" id="editSaleIndex">
+                            <div class="form-group">
+                                <label class="form-label">Дата</label>
+                                <input type="date" class="form-control" id="editSaleDate" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Врач</label>
+                                <input type="text" class="form-control" id="editSaleDoctor" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Сумма</label>
+                                <input type="number" step="0.01" class="form-control" id="editSaleAmount" required>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="hideEditSaleModal()">Отмена</button>
+                        <button class="btn btn-success" onclick="saveSaleEdit()">Сохранить</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Панель управления визитами ===== -->
+            <div class="section-header" style="margin-top: 32px;">
+                <h2 class="section-title">Визиты</h2>
+            </div>
+
+            <div class="toolbar">
+                <div class="search-box">
+                    <input type="text" class="form-control" id="searchInput"
+                           placeholder="🔍 Поиск по врачу или клинике...">
+                </div>
+                <div class="filters">
+                    <select class="form-control" id="periodFilter">
+                        <option value="all">Все периоды</option>
+                        <option value="today">Сегодня</option>
+                        <option value="week">Эта неделя</option>
+                        <option value="month">Этот месяц</option>
+                    </select>
+                    <button class="view-toggle" id="viewToggleBtn" onclick="toggleCompactView()">
+                        📋 Компактный вид
+                    </button>
+                    <button class="btn btn-success" onclick="showVisitForm()">+ Добавить визит</button>
+                </div>
+            </div>
+
+            <div class="loading" id="loadingIndicator">
+                <p>📡 Загрузка данных...</p>
+            </div>
+
+            <div id="visitsContainer">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📋</div>
+                    <h3>Нет визитов</h3>
+                    <p>Добавьте первый визит, нажав кнопку "Добавить визит"</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для редактирования баланса -->
+    <div id="balanceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="balanceModalTitle">Редактировать баланс</h2>
+                <button class="close-btn" onclick="hideBalanceModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="balanceForm">
+                    <div class="form-group">
+                        <label class="form-label" id="balanceModalLabel">Остаток на руках (сомони)</label>
+                        <div class="currency-input">
+                            <input type="number" class="form-control" id="balanceInput" required min="0" step="0.01" placeholder="0.00">
+                        </div>
+                        <small style="color: #666; margin-top: 8px; display: block;">
+                            При добавлении визита с оплатой, эта сумма будет автоматически уменьшаться
+                        </small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideBalanceModal()">Отмена</button>
+                <button class="btn btn-success" onclick="saveBalance()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для добавления/редактирования визита -->
+    <div id="visitModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Добавить визит</h2>
+                <button class="close-btn" onclick="hideVisitForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="visitForm">
+                    <input type="hidden" id="visitId">
+
+                    <div class="form-group">
+                        <label class="form-label">Врач *</label>
+                        <div class="doctor-selector">
+                            <div class="doctor-search">
+                                <input type="text" class="form-control" id="doctorSearch"
+                                       placeholder="🔍 Найти врача..." required autocomplete="off">
+                                <div class="doctor-dropdown" id="doctorDropdown"></div>
+                            </div>
+                            <button type="button" class="btn btn-secondary" style="margin-top: 8px;" onclick="showAddDoctorForm()">+ Добавить нового врача</button>
+                        </div>
+                        <input type="hidden" id="selectedDoctorId">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Время визита *</label>
+                        <input type="datetime-local" class="form-control" id="visitTime" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Клиника *</label>
+                        <input type="text" class="form-control" id="clinicName" required placeholder="Название клиники">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Сумма (сомони) *</label>
+                        <div class="currency-input">
+                            <input type="number" class="form-control" id="amount" required min="0" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Статус удовлетворенности *</label>
+                        <div class="status-toggle">
+                            <button type="button" class="status-option satisfied" data-status="satisfied">
+                                <span>✓</span> Доволен
+                            </button>
+                            <button type="button" class="status-option unsatisfied" data-status="unsatisfied">
+                                <span>✗</span> Не доволен
+                            </button>
+                        </div>
+                        <input type="hidden" id="satisfactionStatus" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Дата следующего визита</label>
+                        <input type="date" class="form-control" id="nextVisitDate">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Комментарий</label>
+                        <textarea class="form-control" id="comment" rows="3" placeholder="Дополнительные заметки..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideVisitForm()">Отмена</button>
+                <button class="btn btn-success" onclick="saveVisit()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для добавления врача -->
+    <div id="doctorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавить нового врача</h2>
+                <button class="close-btn" onclick="hideAddDoctorForm()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="doctorForm">
+                    <div class="form-group">
+                        <label class="form-label">Имя врача *</label>
+                        <input type="text" class="form-control" id="doctorName" required placeholder="Фамилия И.О.">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Код врача *</label>
+                        <input type="text" class="form-control" id="doctorCode" required placeholder="Уникальный код">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideAddDoctorForm()">Отмена</button>
+                <button class="btn btn-success" onclick="addNewDoctor()">Добавить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Уведомления -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // ============================================================
+        // КОНФИГУРАЦИЯ SUPABASE
+        // ============================================================
+        const SUPABASE_URL = 'https://jyhlrjrrmemttyvicibq.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5aGxyanJybWVtdHR5dmljaWJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEzNjk2NjgsImV4cCI6MjA3Njk0NTY2OH0.XrkLM9jFmnnGQMkU2dxy286gzdYE43QdMzBj3Z4Ig7s';
+
+        // ============================================================
+        // ГЛОБАЛЬНОЕ СОСТОЯНИЕ
+        // ============================================================
+        let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+        let currentRecordId = null;       // ID записи в crm_data для текущего ТП
+        let salesRecordId = null;         // ID записи в doctor_sales
+
+        // appData — данные ТЕКУЩЕГО торгового представителя (или выбранного администратором)
+        let appData = {
+            users: [],
+            doctors: [
+                { code: '100', name: 'Иванов А.И.' },
+                { code: '102', name: 'Петров Б.В.' },
+                { code: '103', name: 'Сидорова В.Г.' }
+            ],
+            visits: [],
+            salesRepBalance: 0
+        };
+
+        // Список всех пользователей из tp_users (загружается для admin)
+        let allUsers = [];
+
+        // Логин ТП, данные которого сейчас просматривает администратор
+        // null = смотрим данные самого admin (нет фильтра), иначе логин конкретного ТП
+        let adminViewingRepLogin = null;
+
+        let selectedDoctor = null;
+        let editingVisitId = null;
+        let isCompactView = false;
+
+        // ---- Doctor Sales ----
+        let doctorSalesData = [];
+        let filteredSalesData = [];
+        let allTimeSalesData = [];
+
+        // ============================================================
+        // ИНИЦИАЛИЗАЦИЯ
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Инициализация CRM системы');
+
+            if (currentUser) {
+                showDashboard();
+                loadData();
+            }
+
+            document.getElementById('loginForm').addEventListener('submit', handleLogin);
+            document.getElementById('searchInput').addEventListener('input', filterVisits);
+            document.getElementById('periodFilter').addEventListener('change', filterVisits);
+
+            setupDoctorSearch();
+            setupStatusToggle();
+
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('modal')) {
+                    e.target.classList.remove('active');
+                }
+            });
+        });
+
+        // ============================================================
+        // АВТОРИЗАЦИЯ
+        // ============================================================
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const login = document.getElementById('loginInput').value.trim();
+            const password = document.getElementById('passwordInput').value;
+
+            showLoading(true);
+            try {
+                // Проверяем пользователя в Supabase таблице tp_users
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/tp_users?login=eq.${encodeURIComponent(login)}&password=eq.${encodeURIComponent(password)}&select=*`,
+                    {
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        }
+                    }
+                );
+
+                if (!response.ok) throw new Error('Ошибка подключения');
+
+                const users = await response.json();
+
+                if (users && users.length > 0) {
+                    const user = users[0];
+                    currentUser = {
+                        id: user.id,
+                        login: user.login,
+                        name: user.name,
+                        role: user.role,
+                        sales_rep_balance: user.sales_rep_balance || 0
+                    };
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    showNotification('✅ Добро пожаловать, ' + user.name + '!', 'success');
+                    showDashboard();
+                    await loadData();
+                } else {
+                    // Fallback: проверяем локальный список (для совместимости)
+                    const localUsers = [
+                        { login: 'admin1', name: 'Администратор 1', password: 'admin123', role: 'admin', sales_rep_balance: 0 },
+                        { login: 'admin2', name: 'Администратор 2', password: 'admin456', role: 'admin', sales_rep_balance: 0 },
+                        { login: 'sunnat', name: 'Администратор 3', password: 'sunna0909', role: 'admin', sales_rep_balance: 0 },
+                        { login: 'Hakim', name: 'Торговый представитель', password: 'tp123', role: 'salesrep', sales_rep_balance: 0 }
+                    ];
+                    const localUser = localUsers.find(u => u.login === login && u.password === password);
+                    if (localUser) {
+                        currentUser = { login: localUser.login, name: localUser.name, role: localUser.role, sales_rep_balance: localUser.sales_rep_balance };
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        showNotification('✅ Добро пожаловать!', 'success');
+                        showDashboard();
+                        await loadData();
+                    } else {
+                        showNotification('❌ Неверный логин или пароль', 'error');
+                    }
+                }
+            } catch (err) {
+                console.error('Ошибка входа:', err);
+                showNotification('❌ Ошибка подключения: ' + err.message, 'error');
+            }
+            showLoading(false);
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('currentUser');
+            allUsers = [];
+            adminViewingRepLogin = null;
+            showPage('loginPage');
+            document.getElementById('loginForm').reset();
+            showNotification('👋 До свидания!', 'success');
+        }
+
+        // ============================================================
+        // НАВИГАЦИЯ И ОТОБРАЖЕНИЕ
+        // ============================================================
+
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+        }
+
+        function showDashboard() {
+            showPage('dashboardPage');
+            document.getElementById('userInfo').textContent =
+                `${currentUser.name} (${currentUser.role === 'admin' ? 'Администратор' : 'Торговый представитель'})`;
+
+            // Панели видимости по роли
+            document.getElementById('adminDashboard').style.display = 'block';
+            document.getElementById('doctorSalesSection').style.display = 'none';
+            document.getElementById('manageRepsSection').style.display = 'none';
+
+            if (currentUser.role === 'admin') {
+                document.getElementById('doctorSalesBtn').style.display = 'inline-block';
+                document.getElementById('manageRepsBtn').style.display = 'inline-block';
+                document.getElementById('repSelectorBar').style.display = 'flex';
+                document.getElementById('allBalancesBlock').style.display = 'block';
+                document.getElementById('editBalanceBtn').style.display = 'block';
+            } else {
+                document.getElementById('doctorSalesBtn').style.display = 'none';
+                document.getElementById('manageRepsBtn').style.display = 'none';
+                document.getElementById('repSelectorBar').style.display = 'none';
+                document.getElementById('allBalancesBlock').style.display = 'none';
+                document.getElementById('editBalanceBtn').style.display = 'none';
+            }
+
+            document.getElementById('backToDashboardBtn').style.display = 'none';
+            updateDashboard();
+        }
+
+        function showDoctorSalesSection() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            document.getElementById('adminDashboard').style.display = 'none';
+            document.getElementById('manageRepsSection').style.display = 'none';
+            document.getElementById('doctorSalesSection').style.display = 'block';
+            document.getElementById('doctorSalesBtn').style.display = 'none';
+            document.getElementById('manageRepsBtn').style.display = 'none';
+            document.getElementById('backToDashboardBtn').style.display = 'inline-block';
+            loadSalesDataFromSupabase();
+        }
+
+        function showManageRepsSection() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            document.getElementById('adminDashboard').style.display = 'none';
+            document.getElementById('doctorSalesSection').style.display = 'none';
+            document.getElementById('manageRepsSection').style.display = 'block';
+            document.getElementById('doctorSalesBtn').style.display = 'none';
+            document.getElementById('manageRepsBtn').style.display = 'none';
+            document.getElementById('backToDashboardBtn').style.display = 'inline-block';
+            renderManageUsers();
+        }
+
+        function backToDashboard() {
+            document.getElementById('doctorSalesSection').style.display = 'none';
+            document.getElementById('manageRepsSection').style.display = 'none';
+            document.getElementById('adminDashboard').style.display = 'block';
+            document.getElementById('doctorSalesBtn').style.display = 'inline-block';
+            document.getElementById('manageRepsBtn').style.display = 'inline-block';
+            document.getElementById('backToDashboardBtn').style.display = 'none';
+        }
+
+        // ============================================================
+        // ЗАГРУЗКА ПОЛЬЗОВАТЕЛЕЙ ИЗ tp_users (для администраторов)
+        // ============================================================
+
+        async function loadAllUsers() {
+            try {
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/tp_users?select=id,login,name,role,sales_rep_balance&order=role,login`,
+                    {
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        }
+                    }
+                );
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                allUsers = await response.json();
+                populateRepSelector();
+                renderAllBalances();
+            } catch (err) {
+                console.error('Ошибка загрузки пользователей:', err);
+            }
+        }
+
+        function populateRepSelector() {
+            const sel = document.getElementById('repSelectFilter');
+            // Сохраняем текущий выбор
+            const current = sel.value;
+            sel.innerHTML = '<option value="">— все визиты —</option>';
+            allUsers.filter(u => u.role === 'salesrep').forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.login;
+                opt.textContent = `${u.name} (${u.login})`;
+                sel.appendChild(opt);
+            });
+            if (current) sel.value = current;
+        }
+
+        function renderAllBalances() {
+            const tbody = document.getElementById('allBalancesBody');
+            if (!tbody) return;
+            const reps = allUsers.filter(u => u.role === 'salesrep');
+            if (reps.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">Нет торговых представителей</td></tr>';
+                return;
+            }
+            tbody.innerHTML = reps.map(u => `
+                <tr>
+                    <td>${u.login}</td>
+                    <td>${u.name}</td>
+                    <td class="balance-highlight">${(u.sales_rep_balance || 0).toFixed(2)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="openBalanceEditForRep('${u.login}', '${u.name}', ${u.sales_rep_balance || 0})">✏️ Изменить</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderManageUsers() {
+            const tbody = document.getElementById('manageUsersBody');
+            if (!tbody) return;
+            if (allUsers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">Загрузка...</td></tr>';
+                loadAllUsers().then(renderManageUsers);
+                return;
+            }
+            tbody.innerHTML = allUsers.map(u => `
+                <tr>
+                    <td>${u.login}</td>
+                    <td>${u.name}</td>
+                    <td>${u.role === 'admin' ? 'Администратор' : 'Торговый представитель'}</td>
+                    <td>${u.role === 'salesrep' ? `<span class="balance-highlight">${(u.sales_rep_balance || 0).toFixed(2)}</span>` : '—'}</td>
+                </tr>
+            `).join('');
+        }
+
+        // ============================================================
+        // ВЫБОР ТП АДМИНИСТРАТОРОМ
+        // ============================================================
+
+        async function onRepFilterChange() {
+            const sel = document.getElementById('repSelectFilter');
+            adminViewingRepLogin = sel.value || null;
+
+            if (adminViewingRepLogin) {
+                // Загружаем данные выбранного ТП
+                await loadRepData(adminViewingRepLogin);
+            } else {
+                // Сброс — показываем данные без привязки к конкретному ТП
+                adminViewingRepLogin = null;
+                appData.visits = [];
+                appData.salesRepBalance = 0;
+                currentRecordId = null;
+                await loadData();
+            }
+        }
+
+        // Загружает crm_data для конкретного ТП (используется администратором)
+        async function loadRepData(repLogin) {
+            showLoading(true);
+            try {
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/crm_data?user_login=eq.${encodeURIComponent(repLogin)}&order=id.desc&limit=1`,
+                    {
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        }
+                    }
+                );
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const data = await response.json();
+
+                if (data && data.length > 0) {
+                    const record = data[0];
+                    currentRecordId = record.id;
+                    if (record.data) {
+                        appData = { ...appData, ...record.data };
+                    }
+                    // Синхронизируем баланс из tp_users
+                    const repUser = allUsers.find(u => u.login === repLogin);
+                    if (repUser) appData.salesRepBalance = repUser.sales_rep_balance || 0;
+                } else {
+                    appData.visits = [];
+                    appData.salesRepBalance = 0;
+                    currentRecordId = null;
+                }
+
+                updateDashboard();
+                renderVisits();
+                showNotification(`📂 Данные сотрудника: ${repLogin}`, 'success');
+            } catch (err) {
+                console.error('Ошибка загрузки данных ТП:', err);
+                showNotification('❌ Ошибка загрузки данных сотрудника', 'error');
+            }
+            showLoading(false);
+        }
+
+        // ============================================================
+        // DASHBOARD
+        // ============================================================
+
+        function updateDashboard() {
+            if (!currentUser) return;
+
+            // Баланс
+            const balance = appData.salesRepBalance || 0;
+            document.getElementById('balanceValue').textContent = balance.toFixed(2);
+
+            // Название карточки
+            if (currentUser.role === 'admin' && adminViewingRepLogin) {
+                const rep = allUsers.find(u => u.login === adminViewingRepLogin);
+                document.getElementById('balanceCardTitle').textContent =
+                    'Баланс: ' + (rep ? rep.name : adminViewingRepLogin);
+            } else {
+                document.getElementById('balanceCardTitle').textContent = 'Остаток на руках';
+            }
+
+            // Всего оплачено
+            const totalPaid = appData.visits.reduce((sum, v) => sum + (v.amount || 0), 0);
+            document.getElementById('totalPaidValue').textContent = totalPaid.toFixed(2);
+
+            // Визиты за месяц
+            const now = new Date();
+            const monthVisits = appData.visits.filter(v => {
+                const d = new Date(v.visitTime);
+                return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            });
+            document.getElementById('monthVisitsValue').textContent = monthVisits.length;
+
+            // Уникальные врачи
+            const uniqueDoctors = new Set(appData.visits.map(v => v.doctorId));
+            document.getElementById('uniqueDoctorsValue').textContent = uniqueDoctors.size;
+
+            // Видимость карточек по роли
+            if (currentUser.role === 'salesrep') {
+                document.getElementById('dashboardCard1').style.display = 'block';
+                document.getElementById('dashboardCard2').style.display = 'none';
+                document.getElementById('dashboardCard3').style.display = 'none';
+                document.getElementById('dashboardCard4').style.display = 'none';
+                document.getElementById('editBalanceBtn').style.display = 'none';
+            } else {
+                document.getElementById('dashboardCard1').style.display = 'block';
+                document.getElementById('dashboardCard2').style.display = 'block';
+                document.getElementById('dashboardCard3').style.display = 'block';
+                document.getElementById('dashboardCard4').style.display = 'block';
+                document.getElementById('editBalanceBtn').style.display = 'block';
+            }
+
+            // Обновить таблицу балансов
+            if (currentUser.role === 'admin') {
+                renderAllBalances();
+            }
+        }
+
+        // ============================================================
+        // РЕДАКТИРОВАНИЕ БАЛАНСА
+        // ============================================================
+
+        // targetRepLogin: если задан, редактируем баланс этого ТП; иначе — текущий ТП
+        let _editingBalanceForLogin = null;
+
+        function showEditBalanceModal() {
+            // По умолчанию редактируем того, чьи данные сейчас видны
+            _editingBalanceForLogin = adminViewingRepLogin || currentUser.login;
+            const rep = allUsers.find(u => u.login === _editingBalanceForLogin);
+            const label = rep ? rep.name : _editingBalanceForLogin;
+            document.getElementById('balanceModalTitle').textContent = 'Баланс: ' + label;
+            document.getElementById('balanceModalLabel').textContent = `Остаток на руках (сомони) — ${label}`;
+            document.getElementById('balanceInput').value = appData.salesRepBalance || 0;
+            document.getElementById('balanceModal').classList.add('active');
+        }
+
+        function openBalanceEditForRep(repLogin, repName, currentBalance) {
+            _editingBalanceForLogin = repLogin;
+            document.getElementById('balanceModalTitle').textContent = 'Баланс: ' + repName;
+            document.getElementById('balanceModalLabel').textContent = `Остаток на руках (сомони) — ${repName}`;
+            document.getElementById('balanceInput').value = currentBalance;
+            document.getElementById('balanceModal').classList.add('active');
+        }
+
+        function hideBalanceModal() {
+            document.getElementById('balanceModal').classList.remove('active');
+        }
+
+        async function saveBalance() {
+            const newBalance = parseFloat(document.getElementById('balanceInput').value);
+            if (isNaN(newBalance) || newBalance < 0) {
+                showNotification('❌ Введите корректную сумму', 'error');
+                return;
+            }
+
+            const targetLogin = _editingBalanceForLogin || currentUser.login;
+
+            try {
+                // Сохраняем баланс в tp_users
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/tp_users?login=eq.${encodeURIComponent(targetLogin)}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify({ sales_rep_balance: newBalance })
+                    }
+                );
+
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+
+                // Обновляем локальный кэш
+                const userInList = allUsers.find(u => u.login === targetLogin);
+                if (userInList) userInList.sales_rep_balance = newBalance;
+
+                // Если редактируем текущего просматриваемого ТП — обновляем appData
+                if (targetLogin === (adminViewingRepLogin || currentUser.login)) {
+                    appData.salesRepBalance = newBalance;
+                    // Также обновляем в crm_data
+                    await saveData();
+                }
+
+                updateDashboard();
+                hideBalanceModal();
+                showNotification('✅ Баланс обновлен', 'success');
+            } catch (err) {
+                console.error('Ошибка сохранения баланса:', err);
+                showNotification('❌ Ошибка сохранения баланса: ' + err.message, 'error');
+            }
+        }
+
+        // ============================================================
+        // СОЗДАНИЕ НОВОГО СОТРУДНИКА
+        // ============================================================
+
+        async function createNewRep() {
+            const login = document.getElementById('newRepLogin').value.trim();
+            const name = document.getElementById('newRepName').value.trim();
+            const password = document.getElementById('newRepPassword').value.trim();
+            const role = document.getElementById('newRepRole').value;
+
+            if (!login || !name || !password) {
+                showNotification('❌ Заполните все поля', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/tp_users`, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify({ login, name, password, role, sales_rep_balance: 0 })
+                });
+
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(errText);
+                }
+
+                showNotification(`✅ Сотрудник "${name}" создан`, 'success');
+
+                // Очистить форму
+                document.getElementById('newRepLogin').value = '';
+                document.getElementById('newRepName').value = '';
+                document.getElementById('newRepPassword').value = '';
+                document.getElementById('newRepRole').value = 'salesrep';
+
+                // Перезагрузить список
+                await loadAllUsers();
+                renderManageUsers();
+            } catch (err) {
+                console.error('Ошибка создания сотрудника:', err);
+                if (err.message.includes('duplicate') || err.message.includes('unique')) {
+                    showNotification('❌ Логин уже занят. Выберите другой.', 'error');
+                } else {
+                    showNotification('❌ Ошибка: ' + err.message, 'error');
+                }
+            }
+        }
+
+        // ============================================================
+        // ЗАГРУЗКА / СОХРАНЕНИЕ ДАННЫХ (crm_data)
+        // ============================================================
+
+        async function loadData() {
+            showLoading(true);
+            try {
+                // Для администраторов — загружаем список всех пользователей
+                if (currentUser.role === 'admin') {
+                    await loadAllUsers();
+                }
+
+                // Определяем чьи данные загружать
+                const targetLogin = (currentUser.role === 'admin' && adminViewingRepLogin)
+                    ? adminViewingRepLogin
+                    : currentUser.login;
+
+                console.log('📡 Загрузка данных для:', targetLogin);
+
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/crm_data?user_login=eq.${encodeURIComponent(targetLogin)}&order=id.desc&limit=1`,
+                    {
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                        const record = data[0];
+                        currentRecordId = record.id;
+                        if (record.data) {
+                            appData = { ...appData, ...record.data };
+                        }
+                        if (appData.salesRepBalance === undefined) {
+                            appData.salesRepBalance = 0;
+                        }
+                    } else {
+                        console.warn('⚠️ Нет данных в crm_data для:', targetLogin);
+                        appData.visits = [];
+                        currentRecordId = null;
+                    }
+
+                    // Для salesrep — обновить баланс из tp_users (источник истины)
+                    if (currentUser.role === 'salesrep') {
+                        try {
+                            const balResp = await fetch(
+                                `${SUPABASE_URL}/rest/v1/tp_users?login=eq.${encodeURIComponent(currentUser.login)}&select=sales_rep_balance`,
+                                { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+                            );
+                            if (balResp.ok) {
+                                const balData = await balResp.json();
+                                if (balData && balData.length > 0) {
+                                    appData.salesRepBalance = balData[0].sales_rep_balance || 0;
+                                }
+                            }
+                        } catch (_) {}
+                    }
+                } else {
+                    const errText = await response.text();
+                    console.error('❌ Ошибка загрузки:', errText);
+                    showNotification('⚠️ Проблемы с загрузкой данных', 'error');
+                }
+            } catch (error) {
+                console.error('❌ Ошибка загрузки:', error);
+                showNotification('❌ Ошибка подключения: ' + error.message, 'error');
+            }
+            showLoading(false);
+            updateDashboard();
+            renderVisits();
+        }
+
+        async function saveData() {
+            showLoading(true);
+            try {
+                // Определяем для кого сохраняем
+                const targetLogin = (currentUser.role === 'admin' && adminViewingRepLogin)
+                    ? adminViewingRepLogin
+                    : currentUser.login;
+
+                const dataPayload = {
+                    user_login: targetLogin,
+                    data: appData,
+                    updated_at: new Date().toISOString()
+                };
+
+                let response;
+                if (currentRecordId) {
+                    response = await fetch(
+                        `${SUPABASE_URL}/rest/v1/crm_data?id=eq.${currentRecordId}`,
+                        {
+                            method: 'PATCH',
+                            headers: {
+                                'apikey': SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                                'Content-Type': 'application/json',
+                                'Prefer': 'return=representation'
+                            },
+                            body: JSON.stringify(dataPayload)
+                        }
+                    );
+                } else {
+                    response = await fetch(`${SUPABASE_URL}/rest/v1/crm_data`, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(dataPayload)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result && result.length > 0) currentRecordId = result[0].id;
+                    }
+                }
+
+                if (response.ok) {
+                    console.log('✅ Данные сохранены в Supabase');
+                } else {
+                    const errText = await response.text();
+                    throw new Error('Ошибка сохранения: ' + errText);
+                }
+            } catch (error) {
+                console.error('❌ Ошибка сохранения:', error);
+                showNotification('❌ Ошибка сохранения: ' + error.message, 'error');
+            }
+            showLoading(false);
+        }
+
+        async function refreshData() {
+            console.log('🔄 Обновление данных...');
+            await loadData();
+            if (currentUser.role === 'admin') await loadAllUsers();
+            showNotification('🔄 Данные обновлены', 'success');
+        }
+
+        // ============================================================
+        // ВИЗИТЫ
+        // ============================================================
+
+        function groupVisitsByDate(visits) {
+            const grouped = {};
+            visits.forEach(visit => {
+                const date = new Date(visit.visitTime);
+                const dateKey = date.toLocaleDateString('ru-RU');
+                if (!grouped[dateKey]) {
+                    grouped[dateKey] = { date: date, dateString: dateKey, visits: [] };
+                }
+                grouped[dateKey].visits.push(visit);
+            });
+            return Object.values(grouped).sort((a, b) => b.date - a.date);
+        }
+
+        function renderVisits() {
+            const container = document.getElementById('visitsContainer');
+            const visits = getFilteredVisits();
+
+            if (visits.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <h3>Нет визитов</h3>
+                        <p>Добавьте первый визит, нажав кнопку "Добавить визит"</p>
+                    </div>`;
+                return;
+            }
+
+            const groupedVisits = groupVisitsByDate(visits);
+            let html = '';
+
+            groupedVisits.forEach(dateGroup => {
+                const totalAmount = dateGroup.visits.reduce((sum, v) => sum + v.amount, 0);
+                const uniqueDoctors = new Set(dateGroup.visits.map(v => v.doctorId)).size;
+
+                html += `
+                    <div class="date-section">
+                        <div class="date-header">
+                            <div class="date-title">${dateGroup.dateString}</div>
+                            <div class="date-stats">
+                                <div class="date-stat"><span>📋</span><span>${dateGroup.visits.length} визитов</span></div>
+                                <div class="date-stat"><span>👨‍⚕️</span><span>${uniqueDoctors} врачей</span></div>
+                                <div class="date-stat"><span>💰</span><span>${totalAmount.toFixed(2)} сом.</span></div>
+                            </div>
+                        </div>
+                        <div class="visits-grid">`;
+
+                dateGroup.visits.forEach(visit => {
+                    const doctor = appData.doctors.find(d => d.code === visit.doctorId);
+                    const canEdit = currentUser.role === 'admin';
+
+                    if (isCompactView) {
+                        html += `
+                            <div class="visit-card compact">
+                                <div class="visit-header">
+                                    <div>
+                                        <h3>${doctor ? doctor.name : 'Неизвестный врач'}</h3>
+                                        <small>Код: ${visit.doctorId}</small>
+                                    </div>
+                                    <div class="status-badge ${visit.satisfaction}">
+                                        <span>${visit.satisfaction === 'satisfied' ? '✓' : '✗'}</span>
+                                        ${visit.satisfaction === 'satisfied' ? 'Доволен' : 'Не доволен'}
+                                    </div>
+                                </div>
+                                <div class="compact-info">
+                                    <div class="compact-datetime">${formatTime(visit.visitTime)}</div>
+                                    <div class="compact-clinic">${visit.clinic}</div>
+                                    <div class="compact-amount">${visit.amount.toFixed(2)} сом.</div>
+                                    ${visit.location
+                                        ? `<div style="font-size:0.85em;color:#666;">📍 ${visit.location.latitude.toFixed(6)}, ${visit.location.longitude.toFixed(6)}</div>`
+                                        : '<div style="font-size:0.85em;color:#ff6b6b;">⚠️ Без геолокации</div>'}
+                                </div>
+                                ${canEdit ? `
+                                <div class="visit-actions">
+                                    <button class="btn btn-sm btn-secondary" onclick="showVisitForm('${visit.id}')">✏️</button>
+                                    <button class="btn btn-sm btn-error" onclick="deleteVisit('${visit.id}')">🗑️</button>
+                                </div>` : ''}
+                            </div>`;
+                    } else {
+                        html += `
+                            <div class="visit-card">
+                                <div class="visit-header">
+                                    <div>
+                                        <h3>${doctor ? doctor.name : 'Неизвестный врач'}</h3>
+                                        <small>Код: ${visit.doctorId}</small>
+                                    </div>
+                                    <div class="status-badge ${visit.satisfaction}">
+                                        <span>${visit.satisfaction === 'satisfied' ? '✓' : '✗'}</span>
+                                        ${visit.satisfaction === 'satisfied' ? 'Доволен' : 'Не доволен'}
+                                    </div>
+                                </div>
+                                <div class="visit-body">
+                                    <div class="visit-meta">
+                                        <div class="visit-meta-item">
+                                            <span class="visit-meta-label">Время визита</span>
+                                            <span class="visit-meta-value">${formatTime(visit.visitTime)}</span>
+                                        </div>
+                                        <div class="visit-meta-item">
+                                            <span class="visit-meta-label">Клиника</span>
+                                            <span class="visit-meta-value">${visit.clinic}</span>
+                                        </div>
+                                        <div class="visit-meta-item">
+                                            <span class="visit-meta-label">Сумма</span>
+                                            <span class="visit-meta-value">${visit.amount.toFixed(2)} сом.</span>
+                                        </div>
+                                        ${visit.nextVisitDate ? `
+                                        <div class="visit-meta-item">
+                                            <span class="visit-meta-label">Следующий визит</span>
+                                            <span class="visit-meta-value">${formatDate(visit.nextVisitDate)}</span>
+                                        </div>` : ''}
+                                        <div class="visit-meta-item">
+                                            <span class="visit-meta-label">Геолокация</span>
+                                            <span class="visit-meta-value">${visit.location
+                                                ? `📍 <a href="https://www.google.com/maps?q=${visit.location.latitude},${visit.location.longitude}" target="_blank" style="color:#007bff;">${visit.location.latitude.toFixed(6)}, ${visit.location.longitude.toFixed(6)}</a> (точность: ${visit.location.accuracy.toFixed(0)}м)`
+                                                : '⚠️ <span style="color:#ff6b6b;">Нет геолокации</span>'}</span>
+                                        </div>
+                                        ${visit.createdBy ? `
+                                        <div class="visit-meta-item">
+                                            <span class="visit-meta-label">Создал</span>
+                                            <span class="visit-meta-value">${visit.createdBy}</span>
+                                        </div>` : ''}
+                                    </div>
+                                    ${visit.comment ? `<p><strong>Комментарий:</strong> ${visit.comment}</p>` : ''}
+                                    ${canEdit ? `
+                                    <div class="visit-actions">
+                                        <button class="btn btn-sm btn-secondary" onclick="showVisitForm('${visit.id}')">Редактировать</button>
+                                        <button class="btn btn-sm btn-error" onclick="deleteVisit('${visit.id}')">Удалить</button>
+                                    </div>` : ''}
+                                </div>
+                            </div>`;
+                    }
+                });
+
+                html += `</div></div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function getFilteredVisits() {
+            let visits = [...appData.visits];
+
+            // Поиск
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+            if (searchQuery) {
+                visits = visits.filter(visit => {
+                    const doctor = appData.doctors.find(d => d.code === visit.doctorId);
+                    const doctorName = doctor ? doctor.name.toLowerCase() : '';
+                    const clinic = visit.clinic.toLowerCase();
+                    return doctorName.includes(searchQuery) || clinic.includes(searchQuery);
+                });
+            }
+
+            // Фильтр по периоду
+            const periodFilter = document.getElementById('periodFilter').value;
+            const now = new Date();
+            if (periodFilter !== 'all') {
+                visits = visits.filter(visit => {
+                    const visitDate = new Date(visit.visitTime);
+                    switch (periodFilter) {
+                        case 'today':
+                            return visitDate.toDateString() === now.toDateString();
+                        case 'week':
+                            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                            return visitDate >= weekAgo;
+                        case 'month':
+                            return visitDate.getMonth() === now.getMonth() &&
+                                   visitDate.getFullYear() === now.getFullYear();
+                        default:
+                            return true;
+                    }
+                });
+            }
+
+            visits.sort((a, b) => new Date(b.visitTime) - new Date(a.visitTime));
+            return visits;
+        }
+
+        function filterVisits() {
+            renderVisits();
+        }
+
+        function toggleCompactView() {
+            isCompactView = !isCompactView;
+            const toggleBtn = document.getElementById('viewToggleBtn');
+            if (isCompactView) {
+                toggleBtn.textContent = '📄 Детальный вид';
+                toggleBtn.classList.add('active');
+            } else {
+                toggleBtn.textContent = '📋 Компактный вид';
+                toggleBtn.classList.remove('active');
+            }
+            renderVisits();
+        }
+
+        // ============================================================
+        // ФОРМА ВИЗИТА
+        // ============================================================
+
+        function showVisitForm(visitId = null) {
+            editingVisitId = visitId;
+            const modal = document.getElementById('visitModal');
+            const form = document.getElementById('visitForm');
+            const title = document.getElementById('modalTitle');
+
+            if (visitId) {
+                const visit = appData.visits.find(v => v.id === visitId);
+                if (visit) {
+                    title.textContent = 'Редактировать визит';
+                    fillVisitForm(visit);
+                }
+            } else {
+                title.textContent = 'Добавить визит';
+                form.reset();
+                document.getElementById('visitId').value = '';
+                document.getElementById('selectedDoctorId').value = '';
+                selectedDoctor = null;
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                document.getElementById('visitTime').value = now.toISOString().slice(0, 16);
+                document.querySelectorAll('.status-option').forEach(btn => btn.classList.remove('active'));
+                document.getElementById('satisfactionStatus').value = '';
+            }
+            modal.classList.add('active');
+        }
+
+        function hideVisitForm() {
+            document.getElementById('visitModal').classList.remove('active');
+            selectedDoctor = null;
+            editingVisitId = null;
+        }
+
+        function fillVisitForm(visit) {
+            document.getElementById('visitId').value = visit.id;
+            document.getElementById('selectedDoctorId').value = visit.doctorId;
+            const doctor = appData.doctors.find(d => d.code === visit.doctorId);
+            if (doctor) {
+                document.getElementById('doctorSearch').value = `${doctor.name} (${doctor.code})`;
+                selectedDoctor = doctor;
+            }
+            document.getElementById('visitTime').value = visit.visitTime;
+            document.getElementById('clinicName').value = visit.clinic;
+            document.getElementById('amount').value = visit.amount;
+            document.getElementById('nextVisitDate').value = visit.nextVisitDate || '';
+            document.getElementById('comment').value = visit.comment || '';
+            document.getElementById('satisfactionStatus').value = visit.satisfaction;
+            document.querySelectorAll('.status-option').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.status === visit.satisfaction);
+            });
+        }
+
+        function getCurrentLocation() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('❌ Геолокация не поддерживается вашим браузером'));
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                    (position) => resolve({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy,
+                        timestamp: new Date().toISOString()
+                    }),
+                    (error) => {
+                        let msg = '';
+                        switch (error.code) {
+                            case error.PERMISSION_DENIED:
+                                msg = '❌ Вы запретили доступ к геолокации. Разрешите доступ в настройках браузера.'; break;
+                            case error.POSITION_UNAVAILABLE:
+                                msg = '❌ Информация о местоположении недоступна.'; break;
+                            case error.TIMEOUT:
+                                msg = '❌ Превышено время ожидания геолокации.'; break;
+                            default:
+                                msg = '❌ Не удалось получить геолокацию.';
+                        }
+                        reject(new Error(msg));
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                );
+            });
+        }
+
+        async function saveVisit() {
+            const form = document.getElementById('visitForm');
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            if (!selectedDoctor) { showNotification('❌ Выберите врача', 'error'); return; }
+            if (!document.getElementById('satisfactionStatus').value) {
+                showNotification('❌ Укажите статус удовлетворенности', 'error'); return;
+            }
+
+            let location;
+            try {
+                showNotification('📍 Получение геолокации...', 'success');
+                location = await getCurrentLocation();
+                showNotification('✅ Геолокация получена', 'success');
+            } catch (error) {
+                showNotification(error.message, 'error');
+                return;
+            }
+
+            const amount = parseFloat(document.getElementById('amount').value);
+            const isNewVisit = !editingVisitId;
+
+            if (isNewVisit && appData.salesRepBalance < amount) {
+                const confirmSave = confirm(
+                    `⚠️ Недостаточно средств!\n\nБаланс: ${appData.salesRepBalance.toFixed(2)} сом.\nСумма: ${amount.toFixed(2)} сом.\n\nВсё равно продолжить?`
+                );
+                if (!confirmSave) return;
+            }
+
+            const visitData = {
+                id: editingVisitId || generateId(),
+                doctorId: selectedDoctor.code,
+                doctorName: selectedDoctor.name,
+                visitTime: document.getElementById('visitTime').value,
+                clinic: document.getElementById('clinicName').value,
+                amount: amount,
+                satisfaction: document.getElementById('satisfactionStatus').value,
+                nextVisitDate: document.getElementById('nextVisitDate').value || null,
+                comment: document.getElementById('comment').value || null,
+                location: location,
+                createdBy: currentUser.login,
+                createdAt: editingVisitId
+                    ? appData.visits.find(v => v.id === editingVisitId)?.createdAt
+                    : new Date().toISOString()
+            };
+
+            if (editingVisitId) {
+                const index = appData.visits.findIndex(v => v.id === editingVisitId);
+                if (index !== -1) {
+                    const oldAmount = appData.visits[index].amount;
+                    appData.salesRepBalance += oldAmount;
+                    appData.salesRepBalance -= amount;
+                    appData.visits[index] = visitData;
+                }
+            } else {
+                appData.salesRepBalance -= amount;
+                appData.visits.push(visitData);
+            }
+
+            // Синхронизируем баланс в tp_users
+            const targetLogin = (currentUser.role === 'admin' && adminViewingRepLogin)
+                ? adminViewingRepLogin
+                : currentUser.login;
+            try {
+                await fetch(
+                    `${SUPABASE_URL}/rest/v1/tp_users?login=eq.${encodeURIComponent(targetLogin)}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ sales_rep_balance: appData.salesRepBalance })
+                    }
+                );
+                const uIdx = allUsers.findIndex(u => u.login === targetLogin);
+                if (uIdx !== -1) allUsers[uIdx].sales_rep_balance = appData.salesRepBalance;
+            } catch (_) {}
+
+            await saveData();
+            hideVisitForm();
+            renderVisits();
+            updateDashboard();
+            showNotification('✅ Визит сохранен', 'success');
+        }
+
+        async function deleteVisit(visitId) {
+            if (!confirm('⚠️ Удалить этот визит?')) return;
+            const visit = appData.visits.find(v => v.id === visitId);
+            if (visit) appData.salesRepBalance += visit.amount;
+            appData.visits = appData.visits.filter(v => v.id !== visitId);
+
+            // Синхронизируем баланс в tp_users
+            const targetLogin = (currentUser.role === 'admin' && adminViewingRepLogin)
+                ? adminViewingRepLogin
+                : currentUser.login;
+            try {
+                await fetch(
+                    `${SUPABASE_URL}/rest/v1/tp_users?login=eq.${encodeURIComponent(targetLogin)}`,
+                    {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ sales_rep_balance: appData.salesRepBalance })
+                    }
+                );
+                const uIdx = allUsers.findIndex(u => u.login === targetLogin);
+                if (uIdx !== -1) allUsers[uIdx].sales_rep_balance = appData.salesRepBalance;
+            } catch (_) {}
+
+            await saveData();
+            renderVisits();
+            updateDashboard();
+            showNotification('🗑️ Визит удален', 'success');
+        }
+
+        // ============================================================
+        // ВРАЧИ
+        // ============================================================
+
+        function showAddDoctorForm() {
+            document.getElementById('doctorModal').classList.add('active');
+            document.getElementById('doctorForm').reset();
+        }
+
+        function hideAddDoctorForm() {
+            document.getElementById('doctorModal').classList.remove('active');
+        }
+
+        async function addNewDoctor() {
+            const name = document.getElementById('doctorName').value.trim();
+            const code = document.getElementById('doctorCode').value.trim();
+            if (!name || !code) { showNotification('❌ Заполните все поля', 'error'); return; }
+            if (appData.doctors.find(d => d.code === code)) {
+                showNotification('❌ Врач с таким кодом уже существует', 'error'); return;
+            }
+            const newDoctor = { code, name };
+            appData.doctors.push(newDoctor);
+            await saveData();
+            hideAddDoctorForm();
+            selectedDoctor = newDoctor;
+            document.getElementById('doctorSearch').value = `${name} (${code})`;
+            document.getElementById('selectedDoctorId').value = code;
+            showNotification('✅ Врач добавлен', 'success');
+        }
+
+        function setupDoctorSearch() {
+            const searchInput = document.getElementById('doctorSearch');
+            const dropdown = document.getElementById('doctorDropdown');
+
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                if (!query) { dropdown.classList.remove('active'); selectedDoctor = null; document.getElementById('selectedDoctorId').value = ''; return; }
+                const filtered = appData.doctors.filter(d =>
+                    d.name.toLowerCase().includes(query) || d.code.toLowerCase().includes(query)
+                );
+                if (filtered.length > 0) { renderDoctorOptions(filtered); dropdown.classList.add('active'); }
+                else dropdown.classList.remove('active');
+            });
+
+            searchInput.addEventListener('focus', function() {
+                if (this.value.length > 0) {
+                    const query = this.value.toLowerCase().trim();
+                    const filtered = appData.doctors.filter(d =>
+                        d.name.toLowerCase().includes(query) || d.code.toLowerCase().includes(query)
+                    );
+                    if (filtered.length > 0) { renderDoctorOptions(filtered); dropdown.classList.add('active'); }
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove('active');
+                }
+            });
+        }
+
+        function renderDoctorOptions(doctors) {
+            const dropdown = document.getElementById('doctorDropdown');
+            dropdown.innerHTML = doctors.map(doctor => `
+                <div class="doctor-option" onclick="selectDoctor('${doctor.code}')">
+                    <div>${doctor.name}</div>
+                    <div class="doctor-code">${doctor.code}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectDoctor(code) {
+            const doctor = appData.doctors.find(d => d.code === code);
+            if (doctor) {
+                selectedDoctor = doctor;
+                document.getElementById('doctorSearch').value = `${doctor.name} (${doctor.code})`;
+                document.getElementById('selectedDoctorId').value = doctor.code;
+                document.getElementById('doctorDropdown').classList.remove('active');
+            }
+        }
+
+        function setupStatusToggle() {
+            document.querySelectorAll('.status-option').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.status-option').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    document.getElementById('satisfactionStatus').value = this.dataset.status;
+                });
+            });
+        }
+
+        // ============================================================
+        // ПРОДАЖИ ВРАЧЕЙ (Doctor Sales)
+        // ============================================================
+
+        async function handleSalesFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                    const parsedData = parseSalesData(jsonData);
+                    if (parsedData.length === 0) { showNotification('Не удалось распознать данные в файле', 'error'); return; }
+                    doctorSalesData = [...doctorSalesData, ...parsedData];
+                    allTimeSalesData = [...doctorSalesData];
+                    filteredSalesData = [...doctorSalesData];
+                    await saveSalesDataToSupabase();
+                    updateSalesDisplay();
+                    showNotification(`Загружено ${parsedData.length} записей`, 'success');
+                    event.target.value = '';
+                } catch (error) {
+                    console.error('Ошибка при чтении файла:', error);
+                    showNotification('Ошибка при чтении файла', 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseSalesData(jsonData) {
+            const parsed = [];
+            for (let i = 0; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (!row || row.length < 2) continue;
+                const firstCell = String(row[0] || '').trim();
+                if (firstCell.includes('Продажи') || firstCell.includes('Вид дисконтной') ||
+                    firstCell.includes('для учета') || firstCell === '' ||
+                    firstCell.includes('Дисконтная карта')) continue;
+                const doctorName = String(row[0] || '').trim();
+                const amount = parseFloat(String(row[2] || row[1] || '0').replace(/\s/g, '').replace(',', '.'));
+                if (doctorName && amount > 0 && amount < 100000) {
+                    parsed.push({ date: new Date().toISOString().split('T')[0], doctor: doctorName, amount: amount });
+                }
+            }
+            return parsed;
+        }
+
+        async function saveSalesDataToSupabase() {
+            try {
+                const payload = {
+                    user_login: currentUser.login,
+                    sales_data: doctorSalesData,
+                    updated_at: new Date().toISOString()
+                };
+                let response;
+                if (salesRecordId) {
+                    response = await fetch(`${SUPABASE_URL}/rest/v1/doctor_sales?id=eq.${salesRecordId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Prefer': 'return=representation' },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    response = await fetch(`${SUPABASE_URL}/rest/v1/doctor_sales`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Prefer': 'return=representation' },
+                        body: JSON.stringify(payload)
+                    });
+                }
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const result = await response.json();
+                if (result && result.length > 0) salesRecordId = result[0].id;
+            } catch (error) {
+                console.error('Ошибка сохранения данных продаж:', error);
+                showNotification('Ошибка сохранения: ' + error.message, 'error');
+            }
+        }
+
+        async function loadSalesDataFromSupabase() {
+            try {
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/doctor_sales?user_login=eq.${encodeURIComponent(currentUser.login)}&order=id.desc&limit=1`,
+                    { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
+                );
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                const result = await response.json();
+                if (result && result.length > 0) {
+                    const data = result[0];
+                    salesRecordId = data.id;
+                    if (data.sales_data && Array.isArray(data.sales_data)) {
+                        doctorSalesData = data.sales_data;
+                        allTimeSalesData = [...doctorSalesData];
+                        filteredSalesData = [...doctorSalesData];
+                        updateSalesDisplay();
+                        if (doctorSalesData.length > 0) showNotification(`Загружено ${doctorSalesData.length} записей`, 'success');
+                    }
+                } else {
+                    doctorSalesData = []; allTimeSalesData = []; filteredSalesData = [];
+                    updateSalesDisplay();
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки данных продаж:', error);
+                doctorSalesData = []; allTimeSalesData = []; filteredSalesData = [];
+                updateSalesDisplay();
+            }
+        }
+
+        function updateSalesDisplay() { updateSalesTable(); updateTop10Table(); updateSalesStats(); }
+
+        function updateSalesTable() {
+            const tbody = document.getElementById('salesTableBody');
+            if (filteredSalesData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;">Нет данных для отображения</td></tr>'; return;
+            }
+            const sorted = [...filteredSalesData].sort((a, b) => new Date(b.date) - new Date(a.date));
+            tbody.innerHTML = sorted.map((sale, index) => `
+                <tr>
+                    <td>${formatDate(sale.date)}</td>
+                    <td>${sale.doctor}</td>
+                    <td>${sale.amount.toFixed(2)} сомони</td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="showEditSaleModal(${index})">✏️</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteSale(${index})">🗑️</button>
+                    </td>
+                </tr>`).join('');
+        }
+
+        function updateTop10Table() {
+            const tbody = document.getElementById('top10Body');
+            if (filteredSalesData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;">Загрузите данные для отображения статистики</td></tr>'; return;
+            }
+            const stats = {};
+            filteredSalesData.forEach(sale => {
+                if (!stats[sale.doctor]) stats[sale.doctor] = { total: 0, count: 0 };
+                stats[sale.doctor].total += sale.amount;
+                stats[sale.doctor].count++;
+            });
+            const sorted = Object.entries(stats).sort((a, b) => b[1].total - a[1].total).slice(0, 10);
+            tbody.innerHTML = sorted.map(([doctor, s], i) => `
+                <tr><td>${i+1}</td><td>${doctor}</td><td><strong>${s.total.toFixed(2)}</strong> сомони</td><td>${s.count}</td></tr>`).join('');
+        }
+
+        function updateSalesStats() {
+            if (filteredSalesData.length > 0) {
+                const stats = {};
+                filteredSalesData.forEach(sale => { if (!stats[sale.doctor]) stats[sale.doctor] = 0; stats[sale.doctor] += sale.amount; });
+                const top = Object.entries(stats).sort((a, b) => b[1] - a[1])[0];
+                document.getElementById('topDoctorName').textContent = top[0];
+                document.getElementById('topDoctorAmount').textContent = `${top[1].toFixed(2)} сомони`;
+                document.getElementById('totalSalesAmount').textContent = filteredSalesData.reduce((s, r) => s + r.amount, 0).toFixed(2);
+                document.getElementById('totalDoctorsCount').textContent = Object.keys(stats).length;
+            } else {
+                document.getElementById('topDoctorName').textContent = '—';
+                document.getElementById('topDoctorAmount').textContent = '0 сомони';
+                document.getElementById('totalSalesAmount').textContent = '0';
+                document.getElementById('totalDoctorsCount').textContent = '0';
+            }
+            if (allTimeSalesData.length > 0) {
+                const stats = {};
+                allTimeSalesData.forEach(sale => { if (!stats[sale.doctor]) stats[sale.doctor] = 0; stats[sale.doctor] += sale.amount; });
+                const top = Object.entries(stats).sort((a, b) => b[1] - a[1])[0];
+                document.getElementById('allTimeDoctorName').textContent = top[0];
+                document.getElementById('allTimeDoctorAmount').textContent = `${top[1].toFixed(2)} сомони`;
+            } else {
+                document.getElementById('allTimeDoctorName').textContent = '—';
+                document.getElementById('allTimeDoctorAmount').textContent = '0 сомони';
+            }
+        }
+
+        function filterSalesData() {
+            const from = document.getElementById('salesDateFrom').value;
+            const to = document.getElementById('salesDateTo').value;
+            const search = document.getElementById('salesDoctorSearch').value.toLowerCase();
+            filteredSalesData = doctorSalesData.filter(sale => {
+                let m = true;
+                if (from && sale.date < from) m = false;
+                if (to && sale.date > to) m = false;
+                if (search && !sale.doctor.toLowerCase().includes(search)) m = false;
+                return m;
+            });
+            updateSalesDisplay();
+        }
+
+        function resetSalesFilters() {
+            document.getElementById('salesDateFrom').value = '';
+            document.getElementById('salesDateTo').value = '';
+            document.getElementById('salesDoctorSearch').value = '';
+            filteredSalesData = [...doctorSalesData];
+            updateSalesDisplay();
+        }
+
+        function showEditSaleModal(filteredIndex) {
+            const sale = filteredSalesData[filteredIndex];
+            const origIdx = doctorSalesData.findIndex(s => s.date === sale.date && s.doctor === sale.doctor && s.amount === sale.amount);
+            document.getElementById('editSaleIndex').value = origIdx;
+            document.getElementById('editSaleDate').value = sale.date;
+            document.getElementById('editSaleDoctor').value = sale.doctor;
+            document.getElementById('editSaleAmount').value = sale.amount;
+            document.getElementById('editSaleModal').style.display = 'flex';
+        }
+
+        function hideEditSaleModal() { document.getElementById('editSaleModal').style.display = 'none'; }
+
+        async function saveSaleEdit() {
+            const index = parseInt(document.getElementById('editSaleIndex').value);
+            const date = document.getElementById('editSaleDate').value;
+            const doctor = document.getElementById('editSaleDoctor').value;
+            const amount = parseFloat(document.getElementById('editSaleAmount').value);
+            if (!date || !doctor || !amount) { showNotification('Заполните все поля', 'error'); return; }
+            doctorSalesData[index] = { date, doctor, amount };
+            allTimeSalesData = [...doctorSalesData];
+            await saveSalesDataToSupabase();
+            filterSalesData();
+            hideEditSaleModal();
+            showNotification('Запись обновлена', 'success');
+        }
+
+        async function deleteSale(filteredIndex) {
+            if (!confirm('Удалить эту запись?')) return;
+            const sale = filteredSalesData[filteredIndex];
+            const origIdx = doctorSalesData.findIndex(s => s.date === sale.date && s.doctor === sale.doctor && s.amount === sale.amount);
+            doctorSalesData.splice(origIdx, 1);
+            allTimeSalesData = [...doctorSalesData];
+            await saveSalesDataToSupabase();
+            filterSalesData();
+            showNotification('Запись удалена', 'success');
+        }
+
+        function exportSalesData() {
+            if (filteredSalesData.length === 0) { showNotification('Нет данных для экспорта', 'error'); return; }
+            const ws = XLSX.utils.json_to_sheet(filteredSalesData.map(sale => ({ 'Дата': sale.date, 'Врач': sale.doctor, 'Сумма': sale.amount })));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Продажи');
+            XLSX.writeFile(wb, `prodazhi-vrachi-${new Date().toISOString().split('T')[0]}.xlsx`);
+            showNotification('Данные экспортированы', 'success');
+        }
+
+        // ============================================================
+        // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+        // ============================================================
+
+        function generateId() {
+            return 'visit_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function formatDateTime(dateTimeString) {
+            const date = new Date(dateTimeString);
+            return date.toLocaleDateString('ru-RU') + ' ' + date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatTime(dateTimeString) {
+            return new Date(dateTimeString).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('ru-RU');
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loadingIndicator');
+            if (show) loading.classList.add('active');
+            else loading.classList.remove('active');
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>
