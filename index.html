@@ -1542,12 +1542,12 @@
                                 <thead>
                                     <tr>
                                         <th>Дата</th><th>Врач (код)</th><th>Статус</th>
-                                        <th>План выплата</th><th>Факт выплата</th><th>Исходная дата</th>
+                                        <th>Оплата</th><th>План выплата</th><th>Факт выплата</th><th>Исходная дата</th>
                                         <th>Комментарий</th><th>Действия</th>
                                     </tr>
                                 </thead>
                                 <tbody id="planBody">
-                                    <tr><td colspan="8" style="text-align:center;padding:40px;">Нет плановых пунктов</td></tr>
+                                    <tr><td colspan="9" style="text-align:center;padding:40px;">Нет плановых пунктов</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -3412,13 +3412,24 @@
 
             // Интеграция с планом и баллами — только для новых визитов
             if (isNewVisit) {
-                const matched = await tryFulfillPlanForVisit(
-                    targetLogin, visitData.doctorId, amount, visitData.id);
+                // Дата визита берётся из выбранного времени визита (если задано),
+                // иначе — сегодня. По ней ищем плановый пункт того же дня.
+                const planDate = visitData.visitTime
+                    ? ymd(new Date(visitData.visitTime))
+                    : ymd(new Date());
+                const matched = await tryFulfillPlanForVisit(targetLogin, {
+                    doctorCode: visitData.doctorId,
+                    doctorName: visitData.doctorName,
+                    amount,
+                    visitId: visitData.id,
+                    comment: visitData.comment,
+                    planDate
+                });
                 await awardVisitPoint(targetLogin, visitData.id);
                 if (matched) {
                     showNotification('📋 Плановый визит засчитан как выполненный', 'success');
                 } else {
-                    showNotification('ℹ️ Планового пункта на сегодня не найдено — выплата внеплановая', 'success');
+                    showNotification('ℹ️ Планового пункта на эту дату не найдено — выплата внеплановая', 'success');
                 }
             }
 
@@ -4025,24 +4036,39 @@
                     + `&plan_date=gte.${from}&plan_date=lte.${to}&order=plan_date.asc`;
                 const rows = await sbSelect(path);
                 if (!rows || rows.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Нет плановых пунктов</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;">Нет плановых пунктов</td></tr>';
                     return;
                 }
-                tbody.innerHTML = rows.map(p => `<tr>
+                tbody.innerHTML = rows.map(p => {
+                    const planned = Number(p.planned_payment_amount) || 0;
+                    const actual = Number(p.actual_payment_amount) || 0;
+                    let payBadge = '—';
+                    if (p.status === 'visited') {
+                        if (planned > 0 ? actual >= planned : actual > 0) {
+                            payBadge = '✅ выплачено';
+                        } else if (actual > 0) {
+                            payBadge = `⚠️ частично (${num(actual)}/${num(planned)})`;
+                        } else {
+                            payBadge = '❌ без оплаты';
+                        }
+                    }
+                    return `<tr>
                     <td>${formatDate(p.plan_date)}</td>
-                    <td>${p.doctor_name || ''} (${p.doctor_code || '—'})</td>
+                    <td>${escapeHtml(p.doctor_name || '')} (${escapeHtml(p.doctor_code || '—')})</td>
                     <td>${PLAN_STATUS_LABEL[p.status] || p.status}</td>
+                    <td>${payBadge}</td>
                     <td>${num(p.planned_payment_amount)}</td>
                     <td>${num(p.actual_payment_amount)}</td>
                     <td>${p.original_plan_date ? formatDate(p.original_plan_date) : '—'}</td>
-                    <td>${p.comment || ''}</td>
+                    <td>${escapeHtml(p.comment || '')}</td>
                     <td>
                         ${p.status === 'planned' ? `<button class="btn btn-sm btn-secondary" onclick="markPlanStatus(${p.id},'cancelled')">отменить</button>` : ''}
                     </td>
-                </tr>`).join('');
+                </tr>`;
+                }).join('');
             } catch (err) {
                 console.error('Ошибка загрузки плана:', err);
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}</td></tr>`;
             }
         }
 
@@ -4138,22 +4164,79 @@
         }
 
         // Вызывается после сохранения визита: пытается засчитать плановый пункт того же
-        // врача за сегодня как visited. Возвращает true, если пункт найден и закрыт.
-        async function tryFulfillPlanForVisit(repLogin, doctorCode, amount, visitId) {
+        // врача за дату визита как visited и проставить статус оплаты.
+        // Сопоставление: тот же ТП + дата визита (если нет — сегодня) + врач по
+        // каноническому коду, с допуском на совпадение по имени (тот же резолвер,
+        // что и в Sales — ловит Курбонова/Курбанова и т.п.).
+        // Идемпотентность: если пункт уже закрыт этим visit_id — повторно не трогаем.
+        // Возвращает true, если пункт найден/обновлён.
+        async function tryFulfillPlanForVisit(repLogin, opts) {
+            const doctorCode = opts.doctorCode;
+            const doctorName = opts.doctorName || null;
+            const amount = Number(opts.amount) || 0;
+            const visitId = opts.visitId != null ? String(opts.visitId) : null;
+            const visitComment = (opts.comment || '').trim();
+            const planDate = opts.planDate || ymd(new Date());
             try {
-                const today = ymd(new Date());
-                const items = await sbSelect(
-                    `crm_rep_plan_items?rep_login=eq.${encodeURIComponent(repLogin)}`
-                    + `&doctor_code=eq.${encodeURIComponent(doctorCode)}`
-                    + `&plan_date=eq.${today}&status=eq.planned&limit=1`);
-                if (items && items.length > 0) {
-                    await sbPatch('crm_rep_plan_items', `id=eq.${items[0].id}`, {
-                        status: 'visited',
-                        actual_payment_amount: amount || 0,
-                        visit_id: visitId || null
-                    });
-                    return true;
+                // Идемпотентность: этот визит уже закрыл какой-то пункт?
+                if (visitId) {
+                    const already = await sbSelect(
+                        `crm_rep_plan_items?rep_login=eq.${encodeURIComponent(repLogin)}`
+                        + `&visit_id=eq.${encodeURIComponent(visitId)}&limit=1`);
+                    if (already && already.length > 0) return true;
                 }
+
+                // Тянем все незакрытые пункты ТП на дату визита (любой статус, кроме
+                // отменён) — фильтруем/ранжируем на клиенте по коду и имени.
+                const rows = await sbSelect(
+                    `crm_rep_plan_items?rep_login=eq.${encodeURIComponent(repLogin)}`
+                    + `&plan_date=eq.${planDate}&status=neq.cancelled&order=id.asc`);
+                if (!rows || rows.length === 0) return false;
+
+                // Канонический код визита + нормализованное имя для сопоставления.
+                const resolve = buildDoctorCodeResolver(crmDoctors);
+                const visitCanon = String(resolve(doctorCode, doctorName));
+                const visitNorm = normalizeDoctorName(
+                    doctorName || (crmDoctors.find(d => String(d.doctor_code) === String(doctorCode)) || {}).doctor_name);
+
+                const scored = rows.map(p => {
+                    let score = 0;
+                    if (doctorCode != null && String(p.doctor_code) === String(doctorCode)) {
+                        score = 3;                                   // точный код
+                    } else if (String(resolve(p.doctor_code, p.doctor_name)) === visitCanon) {
+                        score = 2;                                   // канонический код совпал
+                    } else if (visitNorm && normalizeDoctorName(p.doctor_name) === visitNorm) {
+                        score = 1;                                   // совпадение по имени
+                    }
+                    // Незакрытые пункты приоритетнее уже посещённых (на случай дублей).
+                    const open = p.status === 'planned' || p.status === 'carried_over' || p.status === 'missed';
+                    return { p, score, open };
+                }).filter(s => s.score > 0);
+
+                if (scored.length === 0) return false;
+
+                // Лучший пункт: сначала незакрытый, затем по силе совпадения, затем
+                // меньший id (старейший). Только ОДИН пункт обновляем за визит.
+                scored.sort((a, b) =>
+                    (b.open - a.open) || (b.score - a.score) || (a.p.id - b.p.id));
+                const target = scored[0].p;
+
+                const planned = Number(target.planned_payment_amount) || 0;
+                const paid = planned > 0 ? amount >= planned : amount > 0;
+                let comment = target.comment || '';
+                const note = paid
+                    ? `💰 выплачено ${num(amount)}`
+                    : `частичная оплата ${num(amount)} из ${num(planned)}`;
+                if (visitComment) comment = visitComment;
+                comment = comment ? `${comment} · ${note}` : note;
+
+                await sbPatch('crm_rep_plan_items', `id=eq.${target.id}`, {
+                    status: 'visited',
+                    actual_payment_amount: amount,
+                    visit_id: visitId,
+                    comment
+                });
+                return true;
             } catch (err) {
                 console.error('tryFulfillPlanForVisit:', err);
             }
