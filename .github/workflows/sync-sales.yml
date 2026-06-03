@@ -39,7 +39,7 @@ jobs:
           else
             echo "start=$(date -u +%Y-%m-01)" >> "$GITHUB_OUTPUT"
             echo "end=$(date -u +%F)" >> "$GITHUB_OUTPUT"
-            echo "source=1c" >> "$GITHUB_OUTPUT"
+            echo "source=all" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check sync script
