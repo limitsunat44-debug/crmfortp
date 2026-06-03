@@ -82,6 +82,65 @@ function normalizeName(value) {
     .replace(/\s+/g, ' ');
 }
 
+/** Расстояние Левенштейна между двумя строками (итеративно, O(n·m)). */
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  const al = a.length;
+  const bl = b.length;
+  if (al === 0) return bl;
+  if (bl === 0) return al;
+  let prev = new Array(bl + 1);
+  let curr = new Array(bl + 1);
+  for (let j = 0; j <= bl; j += 1) prev[j] = j;
+  for (let i = 1; i <= al; i += 1) {
+    curr[0] = i;
+    const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= bl; j += 1) {
+      const cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    const tmp = prev;
+    prev = curr;
+    curr = tmp;
+  }
+  return prev[bl];
+}
+
+/**
+ * Нечёткий матчинг нормализованного имени к справочнику CRM-врачей.
+ * Сначала ищется точное совпадение; если его нет — ближайшее по расстоянию
+ * Левенштейна в пределах безопасного порога (≈10% длины, но не более 2 правок).
+ * Порог сознательно консервативен, чтобы не склеивать разных врачей:
+ * "курбонова райфа" ↔ "курбанова райфа" (1 правка) совпадут,
+ * а явно различающиеся имена — нет.
+ * Возвращает { code, name, fuzzy } или null.
+ */
+function fuzzyMatchDoctor(normName, crmIndex) {
+  if (!normName) return null;
+  const exact = crmIndex.byName.get(normName);
+  if (exact) return { code: exact.code, name: exact.name, fuzzy: false };
+
+  const maxDist = Math.min(2, Math.floor(normName.length * 0.1));
+  if (maxDist < 1) return null;
+
+  let best = null;
+  let bestDist = maxDist + 1;
+  for (const entry of crmIndex.list) {
+    // Быстрая отсечка по разнице длины.
+    if (Math.abs(entry.norm.length - normName.length) > maxDist) continue;
+    const d = levenshtein(normName, entry.norm);
+    if (d < bestDist) {
+      bestDist = d;
+      best = entry;
+      if (d === 0) break;
+    }
+  }
+  if (best && bestDist <= maxDist) {
+    return { code: best.code, name: best.name, fuzzy: true, distance: bestDist };
+  }
+  return null;
+}
+
 /** Дата-время начала/конца суток в формате OData edm.DateTime. */
 function odataPeriodBounds(start, end) {
   return {
@@ -298,24 +357,28 @@ function docsalesClient() {
 
 /**
  * Загрузка справочника врачей CRM (doctor_code + doctor_name) для матчинга
- * по нормализованному имени. Возвращает Map normalizedName -> doctor_code.
- * Best-effort: при ошибке возвращает пустую Map и логирует предупреждение.
+ * по нормализованному имени (точному и нечёткому).
+ * Возвращает индекс { byName: Map norm->{code,name}, list: [{norm,code,name}] }.
+ * Best-effort: при ошибке возвращает пустой индекс и логирует предупреждение.
  */
 async function crmFetchDoctorsByName(crm) {
   const byName = new Map();
+  const list = [];
   try {
     const docs = await crm.select('crm_doctors', { select: 'doctor_code,doctor_name' });
     for (const d of docs || []) {
       const key = normalizeName(d.doctor_name);
       if (key && d.doctor_code != null && !byName.has(key)) {
-        byName.set(key, String(d.doctor_code));
+        const entry = { norm: key, code: String(d.doctor_code), name: d.doctor_name || null };
+        byName.set(key, entry);
+        list.push(entry);
       }
     }
     log(`CRM: загружено врачей для матчинга по имени: ${byName.size}`);
   } catch (e) {
     warn(`CRM: не удалось загрузить crm_doctors для матчинга (${e.message}).`);
   }
-  return byName;
+  return { byName, list };
 }
 
 /**
@@ -415,11 +478,13 @@ async function aggregateDocSalesVisits(ds, start, end) {
 /**
  * Источник docsales.vercel.app (таблица doctor_sales).
  * Строки: { id, store, doctor_name, product, quantity, price, total, sale_date }.
- * doctor_code отсутствует → матчим по нормализованному doctor_name из crm_doctors.
+ * doctor_code отсутствует → матчим по нормализованному doctor_name из crm_doctors
+ * (точно, затем нечётко в пределах безопасного порога — ё/е, пробелы, мелкие опечатки
+ * вроде Курбонова/Курбанова).
  * Если совпадения нет — fallback `name:<normalized>`, raw содержит original имя.
  * Возвращает Map doctor_code -> {name, amount, checks:Set, sources:Set, unmatched:Set}.
  */
-async function aggregateDoctorSales(ds, crmDoctorsByName, start, end) {
+async function aggregateDoctorSales(ds, crmIndex, start, end) {
   const agg = new Map();
 
   let rows = [];
@@ -438,11 +503,17 @@ async function aggregateDoctorSales(ds, crmDoctorsByName, start, end) {
     return agg;
   }
 
+  let fuzzyCount = 0;
   for (const r of rows) {
     const rawName = r.doctor_name != null ? String(r.doctor_name).trim() : '';
     const normName = normalizeName(rawName);
-    const matchedCode = normName ? crmDoctorsByName.get(normName) : null;
+    const match = normName ? fuzzyMatchDoctor(normName, crmIndex) : null;
+    const matchedCode = match ? match.code : null;
     const doctorCode = matchedCode || (normName ? `name:${normName}` : 'unknown');
+    if (match && match.fuzzy) {
+      fuzzyCount += 1;
+      log(`DocSales(doctor_sales): нечёткий матч "${rawName}" → ${match.code} ("${match.name}") dist=${match.distance}`);
+    }
 
     const day = toDay(r.sale_date);
     if (!day) continue;
@@ -459,6 +530,9 @@ async function aggregateDoctorSales(ds, crmDoctorsByName, start, end) {
     a.checks.add(`doctor_sales:${r.id != null ? r.id : `${rawName}|${r.product}|${r.sale_date}`}`);
     a.sources.add('doctor_sales');
     if (!matchedCode && rawName) a.unmatched.add(rawName);
+  }
+  if (fuzzyCount) {
+    log(`DocSales(doctor_sales): нечётких совпадений по имени: ${fuzzyCount}.`);
   }
 
   let unmatchedCount = 0;
@@ -500,10 +574,10 @@ async function syncDocSales(crm, start, end) {
   log('=== DocSales: старт ===');
   const ds = docsalesClient();
 
-  const crmDoctorsByName = await crmFetchDoctorsByName(crm);
+  const crmIndex = await crmFetchDoctorsByName(crm);
 
   const visitsAgg = await aggregateDocSalesVisits(ds, start, end);
-  const doctorSalesAgg = await aggregateDoctorSales(ds, crmDoctorsByName, start, end);
+  const doctorSalesAgg = await aggregateDoctorSales(ds, crmIndex, start, end);
   const agg = mergeDocSalesAggregates(visitsAgg, doctorSalesAgg);
 
   // Одна строка на врача×день (period_start=period_end=sale_date=day),

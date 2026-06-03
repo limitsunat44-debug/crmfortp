@@ -3701,21 +3701,30 @@
                 const nameByCode = {};
                 (doctors || []).forEach(d => { nameByCode[d.doctor_code] = d.doctor_name; });
 
-                // Агрегируем по коду врача
+                // Резолвер кодов: склеивает fallback `name:<norm>` (из DocSales) с
+                // реальным CRM-кодом того же врача (точно/нечётко по имени).
+                // Это устраняет дубли по уже закэшированным данным БЕЗ ресинка.
+                const resolveCode = buildDoctorCodeResolver(doctors);
+
+                // Агрегируем по КАНОНИЧЕСКОМУ коду врача (после резолвинга),
+                // чтобы 1С- и DocSales-строки одного врача попадали в одну строку.
                 const agg = {};
                 const ensure = (code) => (agg[code] = agg[code] || {
-                    doctor_code: code, onec_amount: 0, onec_checks: 0, docsales_amount: 0, docsales_checks: 0
+                    doctor_code: code, onec_amount: 0, onec_checks: 0, docsales_amount: 0, docsales_checks: 0,
+                    fallback_name: null
                 });
                 (onec || []).forEach(r => {
-                    const a = ensure(r.doctor_code);
+                    const a = ensure(resolveCode(r.doctor_code));
                     a.onec_amount += Number(r.amount) || 0;
                     a.onec_checks += Number(r.checks_count) || 0;
                 });
                 (docsales || []).forEach(r => {
-                    const a = ensure(r.doctor_code);
+                    const code = resolveCode(r.doctor_code);
+                    const a = ensure(code);
                     a.docsales_amount += Number(r.amount) || 0;
                     a.docsales_checks += Number(r.checks_count) || 0;
-                    if (!nameByCode[r.doctor_code] && r.doctor_name) nameByCode[r.doctor_code] = r.doctor_name;
+                    // Имя для отображения, если в crm_doctors врача нет (несрезолвенный код).
+                    if (!nameByCode[code] && r.doctor_name && !a.fallback_name) a.fallback_name = r.doctor_name;
                 });
 
                 const list = Object.values(agg).map(a => {
@@ -3730,7 +3739,7 @@
                     else if (diff != null && diff > 10) status = 'mismatch';
                     return {
                         doctor_code: a.doctor_code,
-                        doctor_name: nameByCode[a.doctor_code] || '—',
+                        doctor_name: nameByCode[a.doctor_code] || a.fallback_name || '—',
                         onec_amount: a.onec_amount, onec_checks: a.onec_checks,
                         docsales_amount: a.docsales_amount,
                         diff_percent: diff, bonus_10: bonus10, bonus_patients: bonusPatients,
@@ -3761,6 +3770,96 @@
         }
 
         function num(v) { return (Number(v) || 0).toFixed(2); }
+
+        // Нормализация имени врача (синхронно с scripts/sync-sales.js):
+        // регистр, ё→е, пунктуация/пробелы.
+        function normalizeDoctorName(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .toLowerCase()
+                .replace(/ё/g, 'е')
+                .replace(/[^a-zа-я0-9]+/gi, ' ')
+                .trim()
+                .replace(/\s+/g, ' ');
+        }
+
+        // Расстояние Левенштейна (для нечёткого склеивания дублей по имени).
+        function levenshteinDistance(a, b) {
+            if (a === b) return 0;
+            const al = a.length, bl = b.length;
+            if (al === 0) return bl;
+            if (bl === 0) return al;
+            let prev = new Array(bl + 1), curr = new Array(bl + 1);
+            for (let j = 0; j <= bl; j++) prev[j] = j;
+            for (let i = 1; i <= al; i++) {
+                curr[0] = i;
+                const ca = a.charCodeAt(i - 1);
+                for (let j = 1; j <= bl; j++) {
+                    const cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+                    curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+                }
+                const tmp = prev; prev = curr; curr = tmp;
+            }
+            return prev[bl];
+        }
+
+        // Строит резолвер doctor_code → канонический CRM-код врача.
+        // Цель: устранить дубли, когда DocSales-строки закэшированы под
+        // fallback-кодом `name:<normalized>`, а 1С — под стабильным CRM-кодом.
+        // Логика:
+        //   • реальные CRM-коды отображаются сами на себя;
+        //   • `name:<norm>` сначала ищет точное совпадение по нормализованному
+        //     имени в crm_doctors, затем нечёткое (расстояние Левенштейна ≤
+        //     min(2, 10% длины)) — это ловит Курбонова/Курбанова, ё/е и т.п.;
+        //   • если совпадения нет — код остаётся прежним (врач показывается как есть).
+        function buildDoctorCodeResolver(doctors) {
+            const byNorm = new Map();   // norm name -> canonical code
+            const list = [];            // [{norm, code}]
+            const validCodes = new Set();
+            (doctors || []).forEach(d => {
+                if (d.doctor_code == null) return;
+                const code = String(d.doctor_code);
+                validCodes.add(code);
+                const norm = normalizeDoctorName(d.doctor_name);
+                if (norm && !byNorm.has(norm)) {
+                    byNorm.set(norm, code);
+                    list.push({ norm, code });
+                }
+            });
+            const cache = new Map();
+            return function resolve(rawCode) {
+                if (rawCode == null) return rawCode;
+                const code = String(rawCode);
+                if (cache.has(code)) return cache.get(code);
+                let result = code;
+                // Реальный CRM-код — оставляем как есть.
+                if (!code.startsWith('name:') && validCodes.has(code)) {
+                    cache.set(code, code);
+                    return code;
+                }
+                // Fallback-код по имени — пытаемся привязать к CRM-врачу.
+                if (code.startsWith('name:')) {
+                    const norm = code.slice('name:'.length).trim();
+                    const exact = byNorm.get(norm);
+                    if (exact) {
+                        result = exact;
+                    } else if (norm) {
+                        const maxDist = Math.min(2, Math.floor(norm.length * 0.1));
+                        if (maxDist >= 1) {
+                            let best = null, bestDist = maxDist + 1;
+                            for (const e of list) {
+                                if (Math.abs(e.norm.length - norm.length) > maxDist) continue;
+                                const dist = levenshteinDistance(norm, e.norm);
+                                if (dist < bestDist) { bestDist = dist; best = e; if (dist === 0) break; }
+                            }
+                            if (best && bestDist <= maxDist) result = best.code;
+                        }
+                    }
+                }
+                cache.set(code, result);
+                return result;
+            };
+        }
 
         // ============================================================
         // ВКЛАДКА: ВЫПЛАТЫ
