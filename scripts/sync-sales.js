@@ -96,6 +96,17 @@ function inPeriod(periodIso, fromIso, toIso) {
   return Number.isFinite(t) && t >= Date.parse(fromIso) && t <= Date.parse(toIso);
 }
 
+/** Извлекает день (YYYY-MM-DD) из значения даты/даты-времени. null при неудаче. */
+function toDay(value) {
+  if (!value) return null;
+  const s = String(value);
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(s);
+  if (m) return m[1];
+  const t = Date.parse(s);
+  if (!Number.isFinite(t)) return null;
+  return new Date(t).toISOString().slice(0, 10);
+}
+
 // ===========================================================================
 // HTTP-обёртки
 // ===========================================================================
@@ -190,7 +201,10 @@ async function onecFetchDoctors() {
 }
 
 /**
- * Продажи по дисконтным картам за период, агрегированные по карте.
+ * Продажи по дисконтным картам за период, агрегированные по карте И ДНЮ продажи.
+ * Ключ агрегата: `${ref}|${day}`, где day = YYYY-MM-DD из r.Period.
+ * Это даёт детальные строки на каждый день, чтобы фронт мог суммировать
+ * произвольный диапазон дат (а не только целые предзаданные периоды).
  * amount = sum(Сумма); quantity = sum(Количество);
  * checks_count = count(distinct Recorder) (fallback: count строк).
  * Учитываются только Active === true.
@@ -199,23 +213,27 @@ async function onecFetchSales(start, end) {
   const { from, to } = odataPeriodBounds(start, end);
   const rows = await onecFetchAll('AccumulationRegister_ПродажиПоДисконтнымКартам_RecordType');
 
-  const agg = new Map(); // ref -> {amount, quantity, recorders:Set, rowCount}
+  // key `${ref}|${day}` -> {ref, day, amount, quantity, recorders:Set, rowCount}
+  const agg = new Map();
   for (const r of rows) {
     if (r.Active !== true) continue;
     if (!inPeriod(r.Period, from, to)) continue;
     const ref = r.ДисконтнаяКарта_Key;
     if (!ref) continue;
-    let a = agg.get(ref);
+    const day = toDay(r.Period);
+    if (!day) continue;
+    const key = `${ref}|${day}`;
+    let a = agg.get(key);
     if (!a) {
-      a = { amount: 0, quantity: 0, recorders: new Set(), rowCount: 0 };
-      agg.set(ref, a);
+      a = { ref, day, amount: 0, quantity: 0, recorders: new Set(), rowCount: 0 };
+      agg.set(key, a);
     }
     a.amount += toNumber(r.Сумма);
     a.quantity += toNumber(r.Количество);
     a.rowCount += 1;
     if (r.Recorder) a.recorders.add(String(r.Recorder));
   }
-  log(`1С: агрегировано продаж по картам: ${agg.size}`);
+  log(`1С: агрегировано продаж по картам×дням: ${agg.size}`);
   return agg;
 }
 
@@ -239,21 +257,24 @@ async function syncOneC(crm, start, end) {
     await crm.upsert('crm_doctors', doctorRows, 'doctor_code');
   }
 
-  // Кэш продаж
+  // Кэш продаж: одна строка на врача×день (period_start=period_end=sale_date=day).
+  // День-уровневые строки позволяют фронту суммировать любой диапазон дат.
   const salesRows = [];
-  for (const [ref, a] of sales.entries()) {
-    const doc = doctors.get(ref);
-    const doctorCode = doc ? doc.doctor_code : ref;
+  for (const a of sales.values()) {
+    const doc = doctors.get(a.ref);
+    const doctorCode = doc ? doc.doctor_code : a.ref;
     salesRows.push({
       doctor_code: doctorCode,
-      period_start: start,
-      period_end: end,
+      period_start: a.day,
+      period_end: a.day,
+      sale_date: a.day,
       amount: Number(a.amount.toFixed(2)),
       checks_count: a.recorders.size > 0 ? a.recorders.size : a.rowCount,
       raw: {
-        discount_card_ref: ref,
+        discount_card_ref: a.ref,
         doctor_name: doc ? doc.doctor_name : null,
         quantity: Number(a.quantity.toFixed(3)),
+        granularity: 'day',
       },
       synced_at: new Date().toISOString(),
     });
@@ -369,13 +390,17 @@ async function aggregateDocSalesVisits(ds, start, end) {
       (dim && dim.name) ||
       null;
 
+    const day = toDay(v.visit_date ?? v.created_at ?? v.date);
+    if (!day) continue;
+
     const itemsAmount = amountByVisit.get(String(v.id));
     const amount = itemsAmount != null ? itemsAmount : toNumber(v.total ?? v.amount ?? v.sum);
 
-    let a = agg.get(doctorCode);
+    const key = `${doctorCode}|${day}`;
+    let a = agg.get(key);
     if (!a) {
-      a = { name: doctorName, amount: 0, checks: new Set(), sources: new Set() };
-      agg.set(doctorCode, a);
+      a = { code: doctorCode, day, name: doctorName, amount: 0, checks: new Set(), sources: new Set() };
+      agg.set(key, a);
     }
     if (!a.name && doctorName) a.name = doctorName;
     a.amount += amount;
@@ -383,7 +408,7 @@ async function aggregateDocSalesVisits(ds, start, end) {
     a.sources.add('visits');
   }
 
-  log(`DocSales(visits): агрегировано врачей: ${agg.size}`);
+  log(`DocSales(visits): агрегировано врачей×дней: ${agg.size}`);
   return agg;
 }
 
@@ -419,10 +444,14 @@ async function aggregateDoctorSales(ds, crmDoctorsByName, start, end) {
     const matchedCode = normName ? crmDoctorsByName.get(normName) : null;
     const doctorCode = matchedCode || (normName ? `name:${normName}` : 'unknown');
 
-    let a = agg.get(doctorCode);
+    const day = toDay(r.sale_date);
+    if (!day) continue;
+
+    const key = `${doctorCode}|${day}`;
+    let a = agg.get(key);
     if (!a) {
-      a = { name: rawName || null, amount: 0, checks: new Set(), sources: new Set(), unmatched: new Set() };
-      agg.set(doctorCode, a);
+      a = { code: doctorCode, day, name: rawName || null, amount: 0, checks: new Set(), sources: new Set(), unmatched: new Set() };
+      agg.set(key, a);
     }
     if (!a.name && rawName) a.name = rawName;
     a.amount += toNumber(r.total);
@@ -441,15 +470,15 @@ async function aggregateDoctorSales(ds, crmDoctorsByName, start, end) {
   return agg;
 }
 
-/** Слияние агрегатов нескольких источников DocSales аддитивно по doctor_code. */
+/** Слияние агрегатов нескольких источников DocSales аддитивно по doctor_code×день. */
 function mergeDocSalesAggregates(...maps) {
-  const merged = new Map();
+  const merged = new Map(); // `${code}|${day}` -> {code, day, ...}
   for (const m of maps) {
-    for (const [code, a] of m.entries()) {
-      let t = merged.get(code);
+    for (const [key, a] of m.entries()) {
+      let t = merged.get(key);
       if (!t) {
-        t = { name: a.name, amount: 0, checks: new Set(), sources: new Set(), unmatched: new Set() };
-        merged.set(code, t);
+        t = { code: a.code, day: a.day, name: a.name, amount: 0, checks: new Set(), sources: new Set(), unmatched: new Set() };
+        merged.set(key, t);
       }
       if (!t.name && a.name) t.name = a.name;
       t.amount += a.amount;
@@ -477,16 +506,20 @@ async function syncDocSales(crm, start, end) {
   const doctorSalesAgg = await aggregateDoctorSales(ds, crmDoctorsByName, start, end);
   const agg = mergeDocSalesAggregates(visitsAgg, doctorSalesAgg);
 
-  const rows = [...agg.entries()].map(([code, a]) => ({
-    doctor_code: code,
+  // Одна строка на врача×день (period_start=period_end=sale_date=day),
+  // чтобы фронт мог суммировать произвольный диапазон дат.
+  const rows = [...agg.values()].map((a) => ({
+    doctor_code: a.code,
     doctor_name: a.name,
-    period_start: start,
-    period_end: end,
+    period_start: a.day,
+    period_end: a.day,
+    sale_date: a.day,
     amount: Number(a.amount.toFixed(2)),
     checks_count: a.checks.size,
     raw: {
       source: 'docsales',
       source_tables: [...a.sources],
+      granularity: 'day',
       ...(a.unmatched && a.unmatched.size
         ? { doctor_code_matched: false, doctor_sales_names: [...a.unmatched] }
         : {}),
