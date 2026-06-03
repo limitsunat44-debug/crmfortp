@@ -331,6 +331,18 @@
             min-height: 36px;
         }
 
+        /* Активная вкладка в верхней навигации */
+        .btn.nav-active {
+            box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px var(--primary-color);
+            font-weight: 700;
+            opacity: 1;
+        }
+        .btn-secondary.nav-active {
+            background: var(--primary-color);
+            color: #fff;
+            border-color: var(--primary-color);
+        }
+
         .btn-full {
             width: 100%;
         }
@@ -1010,6 +1022,9 @@
                 <div class="header-actions">
                     <span class="user-info" id="userInfo"></span>
                     <button class="btn btn-sm btn-secondary" onclick="refreshData()">🔄 Обновить</button>
+                    <button class="btn btn-sm btn-primary" id="dashboardNavBtn" onclick="showDashboard()" style="display: none;">
+                        📊 Dashboard
+                    </button>
                     <button class="btn btn-sm btn-primary" id="doctorSalesBtn" onclick="showDoctorSalesSection()" style="display: none;">
                         📊 Продажи врачей
                     </button>
@@ -1030,9 +1045,6 @@
                     </button>
                     <button class="btn btn-sm btn-primary" id="adminStatsBtn" onclick="showAdminStatsSection()" style="display: none;">
                         📈 Статистика
-                    </button>
-                    <button class="btn btn-sm btn-primary" id="backToDashboardBtn" onclick="backToDashboard()" style="display: none;">
-                        ← Назад
                     </button>
                     <button class="btn btn-sm btn-secondary" onclick="logout()">Выход</button>
                 </div>
@@ -1333,6 +1345,7 @@
                     <p style="margin-top:10px;font-size:12px;color:var(--color-gray-400);">
                         Разница &gt; 10% подсвечивается. Итого = продажи&nbsp;1С × 10% + чеки&nbsp;1С × 10.
                     </p>
+                    <p id="reconSyncInfo" style="margin-top:6px;font-size:12px;color:var(--color-gray-400);"></p>
                 </div>
                 <div class="card">
                     <div class="card-body">
@@ -1933,12 +1946,16 @@
             hideAllSubSections();
 
             const isAdmin = currentUser.role === 'admin';
+            // Кнопка возврата на дашборд всегда видна после входа
+            document.getElementById('dashboardNavBtn').style.display = 'inline-block';
             // Кнопки, доступные только администратору
             ['doctorSalesBtn','manageRepsBtn','adminStatsBtn'].forEach(id =>
                 document.getElementById(id).style.display = isAdmin ? 'inline-block' : 'none');
             // Кнопки, доступные обеим ролям
             ['salesReconBtn','paymentsBtn','planBtn','profileBtn'].forEach(id =>
                 document.getElementById(id).style.display = 'inline-block');
+
+            setActiveNav('dashboardNavBtn');
 
             if (isAdmin) {
                 document.getElementById('repSelectorBar').style.display = 'flex';
@@ -1950,28 +1967,45 @@
                 document.getElementById('editBalanceBtn').style.display = 'none';
             }
 
-            document.getElementById('backToDashboardBtn').style.display = 'none';
             updateDashboard();
         }
 
         // Список идентификаторов новых вкладок-секций
         const SUB_SECTION_IDS = ['doctorSalesSection','manageRepsSection','salesReconSection',
             'paymentsSection','planSection','profileSection','adminStatsSection'];
-        const NAV_BTN_IDS = ['doctorSalesBtn','manageRepsBtn','salesReconBtn','paymentsBtn',
-            'planBtn','profileBtn','adminStatsBtn'];
+        const NAV_BTN_IDS = ['dashboardNavBtn','doctorSalesBtn','manageRepsBtn','salesReconBtn',
+            'paymentsBtn','planBtn','profileBtn','adminStatsBtn'];
+        // Соответствие секция → кнопка навигации (для подсветки активной вкладки)
+        const SECTION_TO_NAV_BTN = {
+            doctorSalesSection: 'doctorSalesBtn',
+            manageRepsSection: 'manageRepsBtn',
+            salesReconSection: 'salesReconBtn',
+            paymentsSection: 'paymentsBtn',
+            planSection: 'planBtn',
+            profileSection: 'profileBtn',
+            adminStatsSection: 'adminStatsBtn'
+        };
 
         function hideAllSubSections() {
             SUB_SECTION_IDS.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         }
 
-        // Открыть конкретную секцию-вкладку: скрыть дашборд и остальные секции, спрятать nav-кнопки
+        // Подсветить активную вкладку в верхней навигации
+        function setActiveNav(activeBtnId) {
+            NAV_BTN_IDS.forEach(id => {
+                const b = document.getElementById(id);
+                if (b) b.classList.toggle('nav-active', id === activeBtnId);
+            });
+        }
+
+        // Открыть секцию-вкладку как обычную вкладку: меняем только контент,
+        // вся навигация остаётся видимой, активная кнопка подсвечивается.
         function openSubSection(sectionId) {
             document.getElementById('adminDashboard').style.display = 'none';
             hideAllSubSections();
             const el = document.getElementById(sectionId);
             if (el) el.style.display = 'block';
-            NAV_BTN_IDS.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = 'none'; });
-            document.getElementById('backToDashboardBtn').style.display = 'inline-block';
+            setActiveNav(SECTION_TO_NAV_BTN[sectionId]);
         }
 
         // Возвращает логин ТП, чьи данные сейчас активны (для admin — выбранный, иначе сам)
@@ -1992,9 +2026,36 @@
             renderManageUsers();
         }
 
-        function showSalesReconSection() {
+        async function showSalesReconSection() {
             if (!currentUser) return;
             openSubSection('salesReconSection');
+            // Предзаполняем период из последней синхронизации (если поля пусты),
+            // чтобы данные показывались сразу без ручного ввода дат.
+            const psEl = document.getElementById('reconPeriodStart');
+            const peEl = document.getElementById('reconPeriodEnd');
+            if (!psEl.value || !peEl.value) {
+                const last = await fetchLastSyncRun();
+                if (last && last.period_start && last.period_end) {
+                    psEl.value = last.period_start;
+                    peEl.value = last.period_end;
+                } else {
+                    // запасной вариант — текущий месяц
+                    const b = rangeBounds('month');
+                    psEl.value = b.from;
+                    peEl.value = b.to;
+                }
+            }
+            loadSalesRecon();
+        }
+
+        // Последний успешный (или любой последний) запуск синхронизации
+        async function fetchLastSyncRun() {
+            try {
+                const rows = await sbSelect(
+                    'crm_sync_runs?select=source,period_start,period_end,status,started_at,finished_at' +
+                    '&order=started_at.desc&limit=1');
+                return rows && rows.length ? rows[0] : null;
+            } catch (_) { return null; }
         }
 
         function showPaymentsSection() {
@@ -3348,34 +3409,117 @@
         // ============================================================
         // ВКЛАДКА: ПРОДАЖИ (сверка 1С vs DocSales)
         // ============================================================
+        // Загружает строки кэша 1С/DocSales, пересекающие выбранный период.
+        // Пересечение: row.period_start <= pe AND row.period_end >= ps.
+        async function fetchCacheRows(table, ps, pe, dc) {
+            let path = `${table}?select=*`;
+            if (ps) path += `&period_start=lte.${pe}`;
+            if (pe) path += `&period_end=gte.${ps}`;
+            if (dc) path += `&doctor_code=eq.${encodeURIComponent(dc)}`;
+            return sbSelect(path);
+        }
+
         async function loadSalesRecon() {
             const ps = document.getElementById('reconPeriodStart').value;
             const pe = document.getElementById('reconPeriodEnd').value;
             const dc = document.getElementById('reconDoctorCode').value.trim();
             const tbody = document.getElementById('salesReconBody');
+            const info = document.getElementById('reconSyncInfo');
             if (!ps || !pe) {
                 showNotification('❌ Укажите начало и конец периода', 'error');
                 return;
             }
             tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;">Загрузка...</td></tr>';
+            if (info) info.textContent = '';
             try {
-                // Читаем представление сверки из Supabase (strict filter по периоду)
-                let path = `crm_doctor_bonus_periods?period_start=eq.${ps}&period_end=eq.${pe}`;
-                if (dc) path += `&doctor_code=eq.${encodeURIComponent(dc)}`;
-                path += '&order=total_payable.desc';
-                const rows = await sbSelect(path);
-                if (!rows || rows.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;">Нет данных за выбранный период (кэш 1С пуст — запустите синхронизацию)</td></tr>';
+                // Читаем кэши 1С и DocSales напрямую с пересечением периода и
+                // агрегируем на клиенте — это надёжнее, чем строгий exact-match по view.
+                let [onec, docsales, doctors, lastSync] = await Promise.all([
+                    fetchCacheRows('crm_onec_sales_cache', ps, pe, dc),
+                    fetchCacheRows('crm_docsales_sales_cache', ps, pe, dc),
+                    sbSelect('crm_doctors?select=doctor_code,doctor_name'),
+                    fetchLastSyncRun()
+                ]);
+
+                // Информация о последней синхронизации
+                if (info && lastSync) {
+                    const when = lastSync.finished_at || lastSync.started_at;
+                    info.textContent = `Последняя синхронизация: ${when ? formatDate(when) : '—'}` +
+                        (lastSync.period_start ? ` (период ${lastSync.period_start} — ${lastSync.period_end}, ${lastSync.source || 'all'}, ${lastSync.status || ''})` : '');
+                }
+
+                let fallbackNote = '';
+                // Fallback: если за выбранный период пусто, но кэш вообще не пуст —
+                // показываем последнюю доступную синхронизацию вместо «нет данных».
+                if ((!onec || onec.length === 0) && (!docsales || docsales.length === 0)) {
+                    const anyOnec = await sbSelect('crm_onec_sales_cache?select=period_start,period_end&order=period_end.desc&limit=1');
+                    if (anyOnec && anyOnec.length) {
+                        const lp = anyOnec[0];
+                        [onec, docsales] = await Promise.all([
+                            fetchCacheRows('crm_onec_sales_cache', lp.period_start, lp.period_end, dc),
+                            fetchCacheRows('crm_docsales_sales_cache', lp.period_start, lp.period_end, dc)
+                        ]);
+                        fallbackNote = `⚠️ За выбранный период данных нет. Показана последняя доступная синхронизация: ${lp.period_start} — ${lp.period_end}.`;
+                    }
+                }
+
+                if ((!onec || onec.length === 0) && (!docsales || docsales.length === 0)) {
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;">Кэш продаж пуст. Дождитесь синхронизации или запустите её (scripts/sync-sales.js).</td></tr>';
                     return;
                 }
-                tbody.innerHTML = rows.map(r => {
-                    const mismatch = r.reconciliation_status === 'mismatch';
-                    const statusLabel = { matched: '✅ сверено', mismatch: '⚠️ расхождение', no_data: '— нет данных' }[r.reconciliation_status] || r.reconciliation_status;
+
+                if (fallbackNote && info) {
+                    info.textContent = (info.textContent ? info.textContent + ' — ' : '') + fallbackNote;
+                }
+
+                const nameByCode = {};
+                (doctors || []).forEach(d => { nameByCode[d.doctor_code] = d.doctor_name; });
+
+                // Агрегируем по коду врача
+                const agg = {};
+                const ensure = (code) => (agg[code] = agg[code] || {
+                    doctor_code: code, onec_amount: 0, onec_checks: 0, docsales_amount: 0, docsales_checks: 0
+                });
+                (onec || []).forEach(r => {
+                    const a = ensure(r.doctor_code);
+                    a.onec_amount += Number(r.amount) || 0;
+                    a.onec_checks += Number(r.checks_count) || 0;
+                });
+                (docsales || []).forEach(r => {
+                    const a = ensure(r.doctor_code);
+                    a.docsales_amount += Number(r.amount) || 0;
+                    a.docsales_checks += Number(r.checks_count) || 0;
+                    if (!nameByCode[r.doctor_code] && r.doctor_name) nameByCode[r.doctor_code] = r.doctor_name;
+                });
+
+                const list = Object.values(agg).map(a => {
+                    const bonus10 = a.onec_amount * 0.10;
+                    const bonusPatients = a.onec_checks * 10;
+                    const total = bonus10 + bonusPatients;
+                    const diff = a.onec_amount > 0
+                        ? Math.round(Math.abs(a.onec_amount - a.docsales_amount) / a.onec_amount * 10000) / 100
+                        : null;
+                    let status = 'matched';
+                    if (a.onec_amount === 0) status = 'no_data';
+                    else if (diff != null && diff > 10) status = 'mismatch';
+                    return {
+                        doctor_code: a.doctor_code,
+                        doctor_name: nameByCode[a.doctor_code] || '—',
+                        onec_amount: a.onec_amount, onec_checks: a.onec_checks,
+                        docsales_amount: a.docsales_amount,
+                        diff_percent: diff, bonus_10: bonus10, bonus_patients: bonusPatients,
+                        total_payable: total, status
+                    };
+                }).sort((x, y) => y.total_payable - x.total_payable);
+
+                tbody.innerHTML = list.map(r => {
+                    const mismatch = r.status === 'mismatch';
+                    const statusLabel = { matched: '✅ сверено', mismatch: '⚠️ расхождение', no_data: '— нет данных' }[r.status] || r.status;
                     return `<tr${mismatch ? ' style="background:rgba(255,84,89,0.12);"' : ''}>
                         <td>${r.doctor_name || '—'}</td>
                         <td>${r.doctor_code}</td>
                         <td>${num(r.onec_amount)}</td>
-                        <td>${r.onec_checks_count || 0}</td>
+                        <td>${r.onec_checks || 0}</td>
                         <td>${num(r.docsales_amount)}</td>
                         <td${mismatch ? ' style="color:var(--error-color);font-weight:700;"' : ''}>${r.diff_percent == null ? '—' : r.diff_percent + '%'}</td>
                         <td>${num(r.bonus_10)}</td>
