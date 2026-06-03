@@ -1,0 +1,16 @@
+{
+  "name": "crmfortp-sync",
+  "version": "1.0.0",
+  "description": "Серверная синхронизация продаж 1С и DocSales в CRM Supabase для CRM торговых представителей",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "sync": "node scripts/sync-sales.js",
+    "sync:1c": "node scripts/sync-sales.js --source=1c",
+    "sync:docsales": "node scripts/sync-sales.js --source=docsales",
+    "check": "node --check scripts/sync-sales.js"
+  }
+}

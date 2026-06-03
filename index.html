@@ -1016,6 +1016,21 @@
                     <button class="btn btn-sm btn-primary" id="manageRepsBtn" onclick="showManageRepsSection()" style="display: none;">
                         👥 Сотрудники
                     </button>
+                    <button class="btn btn-sm btn-primary" id="salesReconBtn" onclick="showSalesReconSection()" style="display: none;">
+                        💵 Продажи
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="paymentsBtn" onclick="showPaymentsSection()" style="display: none;">
+                        💳 Выплаты
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="planBtn" onclick="showPlanSection()" style="display: none;">
+                        🗓 План
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="profileBtn" onclick="showProfileSection()" style="display: none;">
+                        🧑‍💼 Профиль
+                    </button>
+                    <button class="btn btn-sm btn-primary" id="adminStatsBtn" onclick="showAdminStatsSection()" style="display: none;">
+                        📈 Статистика
+                    </button>
                     <button class="btn btn-sm btn-primary" id="backToDashboardBtn" onclick="backToDashboard()" style="display: none;">
                         ← Назад
                     </button>
@@ -1288,6 +1303,274 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Вкладка: ПРОДАЖИ (сверка 1С vs DocSales) ===== -->
+            <div id="salesReconSection" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">💵 Продажи — сверка 1С / DocSales</h2>
+                </div>
+                <div class="filters" style="margin-bottom: 20px;">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Начало периода *</label>
+                            <input type="date" id="reconPeriodStart" class="form-control" style="width: 160px;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Конец периода *</label>
+                            <input type="date" id="reconPeriodEnd" class="form-control" style="width: 160px;">
+                        </div>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label">Код врача (опц.)</label>
+                            <input type="text" id="reconDoctorCode" class="form-control" placeholder="напр. 100" style="width: 160px;">
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" onclick="loadSalesRecon()">🔍 Показать</button>
+                        </div>
+                    </div>
+                    <p style="margin-top:10px;font-size:12px;color:var(--color-gray-400);">
+                        Разница &gt; 10% подсвечивается. Итого = продажи&nbsp;1С × 10% + чеки&nbsp;1С × 10.
+                    </p>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <div style="overflow-x:auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Врач</th><th>Код</th><th>Продажи 1С</th><th>Чеки 1С</th>
+                                        <th>Продажи DocSales</th><th>Разница %</th><th>Бонус 10%</th>
+                                        <th>Бонус пациенты</th><th>Итого к выплате</th><th>Статус сверки</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salesReconBody">
+                                    <tr><td colspan="10" style="text-align:center;padding:40px;">Укажите период и нажмите «Показать»</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Вкладка: ВЫПЛАТЫ ===== -->
+            <div id="paymentsSection" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">💳 Выплаты врачам</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-success" onclick="showPaymentForm()">➕ Создать выплату</button>
+                    </div>
+                </div>
+                <div class="filters" style="margin-bottom: 20px;">
+                    <div style="display:flex;gap:15px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label">С даты</label>
+                            <input type="date" id="payFrom" class="form-control" style="width:150px;">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label">По дату</label>
+                            <input type="date" id="payTo" class="form-control" style="width:150px;">
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label">Код врача</label>
+                            <input type="text" id="payDoctorFilter" class="form-control" placeholder="код" style="width:130px;">
+                        </div>
+                        <div class="form-group" style="margin:0;" id="payRepFilterWrap">
+                            <label class="form-label">ТП</label>
+                            <select id="payRepFilter" class="form-control" style="width:200px;"><option value="">— все —</option></select>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" onclick="loadPayments()">🔍 Применить</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <div style="overflow-x:auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Дата</th><th>Врач (код)</th><th>ТП</th><th>Период</th>
+                                        <th>Начислено</th><th>Выплачено</th><th>Долг</th><th>Просрочка</th><th>Комментарий</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="paymentsBody">
+                                    <tr><td colspan="9" style="text-align:center;padding:40px;">Нет данных</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Вкладка: ПЛАН ===== -->
+            <div id="planSection" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">🗓 План визитов</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-success" onclick="showPlanItemForm()">➕ Добавить в план</button>
+                        <button class="btn btn-secondary" onclick="carryOverMissedPlan()">↪️ Перенести невыполненные</button>
+                    </div>
+                </div>
+                <div class="filters" style="margin-bottom:20px;">
+                    <div style="display:flex;gap:15px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" style="margin:0;" id="planRepWrap">
+                            <label class="form-label">ТП</label>
+                            <select id="planRepSelect" class="form-control" style="width:220px;" onchange="loadPlan()"></select>
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label">Диапазон</label>
+                            <select id="planRange" class="form-control" style="width:160px;" onchange="loadPlan()">
+                                <option value="tomorrow">Завтра</option>
+                                <option value="week">Неделя</option>
+                                <option value="month" selected>Месяц</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <div style="overflow-x:auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Дата</th><th>Врач (код)</th><th>Статус</th>
+                                        <th>План выплата</th><th>Факт выплата</th><th>Исходная дата</th>
+                                        <th>Комментарий</th><th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="planBody">
+                                    <tr><td colspan="8" style="text-align:center;padding:40px;">Нет плановых пунктов</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Вкладка: ПРОФИЛЬ ТП ===== -->
+            <div id="profileSection" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">🧑‍💼 Профиль торгового представителя</h2>
+                    <div class="header-actions" id="profileRepSelectWrap" style="display:none;">
+                        <select id="profileRepSelect" class="form-control" style="width:220px;" onchange="loadProfile()"></select>
+                    </div>
+                </div>
+                <div class="dashboard-grid" style="margin-bottom:24px;">
+                    <div class="dashboard-card teal">
+                        <div class="dashboard-card-header"><div class="dashboard-card-title">Визитов за месяц</div><div class="dashboard-card-icon">📅</div></div>
+                        <div class="dashboard-card-value" id="profMonthVisits">0</div>
+                        <div class="dashboard-card-label" id="profMonthPlanLabel">из 0 план</div>
+                    </div>
+                    <div class="dashboard-card purple">
+                        <div class="dashboard-card-header"><div class="dashboard-card-title">Визитов за неделю</div><div class="dashboard-card-icon">🗓</div></div>
+                        <div class="dashboard-card-value" id="profWeekVisits">0</div>
+                        <div class="dashboard-card-label" id="profWeekPlanLabel">из 0 план</div>
+                    </div>
+                    <div class="dashboard-card orange">
+                        <div class="dashboard-card-header"><div class="dashboard-card-title">Долг по выплатам</div><div class="dashboard-card-icon">💰</div></div>
+                        <div class="dashboard-card-value" id="profDebt">0</div>
+                        <div class="dashboard-card-label" id="profOverdueLabel">просрочка: 0</div>
+                    </div>
+                    <div class="dashboard-card pink">
+                        <div class="dashboard-card-header"><div class="dashboard-card-title">Баллы</div><div class="dashboard-card-icon">⭐</div></div>
+                        <div class="dashboard-card-value" id="profPoints">0</div>
+                        <div class="dashboard-card-label">всего баллов</div>
+                    </div>
+                </div>
+                <div class="card" id="profileAdminPointsCard" style="display:none;margin-bottom:24px;">
+                    <div class="card-header"><h3 style="margin:0;">⭐ Начислить / списать баллы (админ)</h3></div>
+                    <div class="card-body">
+                        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label">Баллы (можно −)</label>
+                                <input type="number" id="adjPoints" class="form-control" style="width:120px;" value="0">
+                            </div>
+                            <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+                                <label class="form-label">Комментарий</label>
+                                <input type="text" id="adjPointsComment" class="form-control" placeholder="причина">
+                            </div>
+                            <button class="btn btn-primary" onclick="adjustPoints()">Применить</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3 style="margin:0;">📜 Журнал баллов</h3></div>
+                    <div class="card-body">
+                        <div style="overflow-x:auto;">
+                            <table class="table">
+                                <thead><tr><th>Дата</th><th>Баллы</th><th>Причина</th><th>Комментарий</th></tr></thead>
+                                <tbody id="pointsLedgerBody"><tr><td colspan="4" style="text-align:center;padding:30px;">Нет записей</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Вкладка: АДМИН-СТАТИСТИКА ===== -->
+            <div id="adminStatsSection" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">📈 Статистика по торговым представителям</h2>
+                    <div class="header-actions">
+                        <select id="adminStatsRange" class="form-control" style="width:160px;" onchange="loadAdminStats()">
+                            <option value="today">Сегодня</option>
+                            <option value="week">Неделя</option>
+                            <option value="month" selected>Месяц</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body">
+                        <div style="overflow-x:auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>ТП</th><th>Визиты</th><th>Просрочки выплат</th><th>Деньги потрачено</th><th>Баллы</th></tr>
+                                </thead>
+                                <tbody id="adminStatsBody">
+                                    <tr><td colspan="5" style="text-align:center;padding:40px;">Загрузка...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Модальное окно: создание выплаты -->
+            <div id="paymentModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header"><h3>Создать выплату</h3><span class="close-btn" onclick="hidePaymentForm()">&times;</span></div>
+                    <div class="modal-body">
+                        <div class="form-group"><label class="form-label">Код врача *</label><input type="text" class="form-control" id="payFormDoctorCode"></div>
+                        <div class="form-group"><label class="form-label">Имя врача</label><input type="text" class="form-control" id="payFormDoctorName"></div>
+                        <div class="form-group"><label class="form-label">Сумма *</label><input type="number" step="0.01" class="form-control" id="payFormAmount"></div>
+                        <div class="form-group"><label class="form-label">Дата выплаты *</label><input type="date" class="form-control" id="payFormDate"></div>
+                        <div class="form-group"><label class="form-label">Период (с / по)</label>
+                            <div style="display:flex;gap:8px;"><input type="date" class="form-control" id="payFormPeriodStart"><input type="date" class="form-control" id="payFormPeriodEnd"></div>
+                        </div>
+                        <div class="form-group"><label class="form-label">Комментарий</label><input type="text" class="form-control" id="payFormComment"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="hidePaymentForm()">Отмена</button>
+                        <button class="btn btn-success" onclick="savePayment()">Сохранить</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Модальное окно: добавление пункта плана -->
+            <div id="planItemModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header"><h3>Добавить в план</h3><span class="close-btn" onclick="hidePlanItemForm()">&times;</span></div>
+                    <div class="modal-body">
+                        <div class="form-group"><label class="form-label">Код врача *</label><input type="text" class="form-control" id="planFormDoctorCode"></div>
+                        <div class="form-group"><label class="form-label">Имя врача</label><input type="text" class="form-control" id="planFormDoctorName"></div>
+                        <div class="form-group"><label class="form-label">Дата визита * (будний день)</label><input type="date" class="form-control" id="planFormDate"></div>
+                        <div class="form-group"><label class="form-label">Плановая выплата</label><input type="number" step="0.01" class="form-control" id="planFormAmount" value="0"></div>
+                        <div class="form-group"><label class="form-label">Комментарий</label><input type="text" class="form-control" id="planFormComment"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="hidePlanItemForm()">Отмена</button>
+                        <button class="btn btn-success" onclick="savePlanItem()">Сохранить</button>
                     </div>
                 </div>
             </div>
@@ -1647,18 +1930,21 @@
 
             // Панели видимости по роли
             document.getElementById('adminDashboard').style.display = 'block';
-            document.getElementById('doctorSalesSection').style.display = 'none';
-            document.getElementById('manageRepsSection').style.display = 'none';
+            hideAllSubSections();
 
-            if (currentUser.role === 'admin') {
-                document.getElementById('doctorSalesBtn').style.display = 'inline-block';
-                document.getElementById('manageRepsBtn').style.display = 'inline-block';
+            const isAdmin = currentUser.role === 'admin';
+            // Кнопки, доступные только администратору
+            ['doctorSalesBtn','manageRepsBtn','adminStatsBtn'].forEach(id =>
+                document.getElementById(id).style.display = isAdmin ? 'inline-block' : 'none');
+            // Кнопки, доступные обеим ролям
+            ['salesReconBtn','paymentsBtn','planBtn','profileBtn'].forEach(id =>
+                document.getElementById(id).style.display = 'inline-block');
+
+            if (isAdmin) {
                 document.getElementById('repSelectorBar').style.display = 'flex';
                 document.getElementById('allBalancesBlock').style.display = 'block';
                 document.getElementById('editBalanceBtn').style.display = 'block';
             } else {
-                document.getElementById('doctorSalesBtn').style.display = 'none';
-                document.getElementById('manageRepsBtn').style.display = 'none';
                 document.getElementById('repSelectorBar').style.display = 'none';
                 document.getElementById('allBalancesBlock').style.display = 'none';
                 document.getElementById('editBalanceBtn').style.display = 'none';
@@ -1668,35 +1954,117 @@
             updateDashboard();
         }
 
+        // Список идентификаторов новых вкладок-секций
+        const SUB_SECTION_IDS = ['doctorSalesSection','manageRepsSection','salesReconSection',
+            'paymentsSection','planSection','profileSection','adminStatsSection'];
+        const NAV_BTN_IDS = ['doctorSalesBtn','manageRepsBtn','salesReconBtn','paymentsBtn',
+            'planBtn','profileBtn','adminStatsBtn'];
+
+        function hideAllSubSections() {
+            SUB_SECTION_IDS.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
+        }
+
+        // Открыть конкретную секцию-вкладку: скрыть дашборд и остальные секции, спрятать nav-кнопки
+        function openSubSection(sectionId) {
+            document.getElementById('adminDashboard').style.display = 'none';
+            hideAllSubSections();
+            const el = document.getElementById(sectionId);
+            if (el) el.style.display = 'block';
+            NAV_BTN_IDS.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = 'none'; });
+            document.getElementById('backToDashboardBtn').style.display = 'inline-block';
+        }
+
+        // Возвращает логин ТП, чьи данные сейчас активны (для admin — выбранный, иначе сам)
+        function activeRepLogin() {
+            return (currentUser.role === 'admin' && adminViewingRepLogin)
+                ? adminViewingRepLogin : currentUser.login;
+        }
+
         function showDoctorSalesSection() {
             if (!currentUser || currentUser.role !== 'admin') return;
-            document.getElementById('adminDashboard').style.display = 'none';
-            document.getElementById('manageRepsSection').style.display = 'none';
-            document.getElementById('doctorSalesSection').style.display = 'block';
-            document.getElementById('doctorSalesBtn').style.display = 'none';
-            document.getElementById('manageRepsBtn').style.display = 'none';
-            document.getElementById('backToDashboardBtn').style.display = 'inline-block';
+            openSubSection('doctorSalesSection');
             loadSalesDataFromSupabase();
         }
 
         function showManageRepsSection() {
             if (!currentUser || currentUser.role !== 'admin') return;
-            document.getElementById('adminDashboard').style.display = 'none';
-            document.getElementById('doctorSalesSection').style.display = 'none';
-            document.getElementById('manageRepsSection').style.display = 'block';
-            document.getElementById('doctorSalesBtn').style.display = 'none';
-            document.getElementById('manageRepsBtn').style.display = 'none';
-            document.getElementById('backToDashboardBtn').style.display = 'inline-block';
+            openSubSection('manageRepsSection');
             renderManageUsers();
         }
 
+        function showSalesReconSection() {
+            if (!currentUser) return;
+            openSubSection('salesReconSection');
+        }
+
+        function showPaymentsSection() {
+            if (!currentUser) return;
+            openSubSection('paymentsSection');
+            // Фильтр по ТП виден только администратору
+            document.getElementById('payRepFilterWrap').style.display =
+                currentUser.role === 'admin' ? 'block' : 'none';
+            if (currentUser.role === 'admin') populateRepSelect('payRepFilter', true);
+            loadPayments();
+        }
+
+        function showPlanSection() {
+            if (!currentUser) return;
+            openSubSection('planSection');
+            const wrap = document.getElementById('planRepWrap');
+            if (currentUser.role === 'admin') {
+                wrap.style.display = 'block';
+                populateRepSelect('planRepSelect', false);
+            } else {
+                wrap.style.display = 'none';
+            }
+            loadPlan();
+        }
+
+        function showProfileSection() {
+            if (!currentUser) return;
+            openSubSection('profileSection');
+            const wrap = document.getElementById('profileRepSelectWrap');
+            document.getElementById('profileAdminPointsCard').style.display =
+                currentUser.role === 'admin' ? 'block' : 'none';
+            if (currentUser.role === 'admin') {
+                wrap.style.display = 'block';
+                populateRepSelect('profileRepSelect', false);
+            } else {
+                wrap.style.display = 'none';
+            }
+            loadProfile();
+        }
+
+        function showAdminStatsSection() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            openSubSection('adminStatsSection');
+            loadAdminStats();
+        }
+
         function backToDashboard() {
-            document.getElementById('doctorSalesSection').style.display = 'none';
-            document.getElementById('manageRepsSection').style.display = 'none';
-            document.getElementById('adminDashboard').style.display = 'block';
-            document.getElementById('doctorSalesBtn').style.display = 'inline-block';
-            document.getElementById('manageRepsBtn').style.display = 'inline-block';
-            document.getElementById('backToDashboardBtn').style.display = 'none';
+            showDashboard();
+        }
+
+        // Заполняет <select> логинами ТП. includeAll=true добавляет пункт "все".
+        function populateRepSelect(selectId, includeAll) {
+            const sel = document.getElementById(selectId);
+            if (!sel) return;
+            const reps = allUsers.filter(u => u.role === 'salesrep');
+            const fill = () => {
+                const current = sel.value;
+                sel.innerHTML = includeAll ? '<option value="">— все —</option>' : '';
+                reps.forEach(u => {
+                    const o = document.createElement('option');
+                    o.value = u.login; o.textContent = `${u.name} (${u.login})`;
+                    sel.appendChild(o);
+                });
+                if (current) sel.value = current;
+            };
+            if (reps.length === 0) {
+                loadAllUsers().then(fill);
+            } else {
+                fill();
+            }
         }
 
         // ============================================================
@@ -2533,6 +2901,19 @@
             } catch (_) {}
 
             await saveData();
+
+            // Интеграция с планом и баллами — только для новых визитов
+            if (isNewVisit) {
+                const matched = await tryFulfillPlanForVisit(
+                    targetLogin, visitData.doctorId, amount, visitData.id);
+                await awardVisitPoint(targetLogin, visitData.id);
+                if (matched) {
+                    showNotification('📋 Плановый визит засчитан как выполненный', 'success');
+                } else {
+                    showNotification('ℹ️ Планового пункта на сегодня не найдено — выплата внеплановая', 'success');
+                }
+            }
+
             hideVisitForm();
             renderVisits();
             updateDashboard();
@@ -2900,6 +3281,559 @@
             XLSX.utils.book_append_sheet(wb, ws, 'Продажи');
             XLSX.writeFile(wb, `prodazhi-vrachi-${new Date().toISOString().split('T')[0]}.xlsx`);
             showNotification('Данные экспортированы', 'success');
+        }
+
+        // ============================================================
+        // ОБЩИЙ ХЕЛПЕР ЗАПРОСОВ К SUPABASE REST
+        // ============================================================
+        function sbHeaders(extra) {
+            return Object.assign({
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            }, extra || {});
+        }
+
+        async function sbSelect(path) {
+            const r = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { headers: sbHeaders() });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        }
+
+        async function sbInsert(table, body) {
+            const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+                method: 'POST',
+                headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+                body: JSON.stringify(body)
+            });
+            if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + await r.text());
+            return r.json();
+        }
+
+        async function sbPatch(table, query, body) {
+            const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+                method: 'PATCH',
+                headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+                body: JSON.stringify(body)
+            });
+            if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + await r.text());
+            return r.json();
+        }
+
+        // ---- Утилиты дат для плана / периодов ----
+        function ymd(d) { return d.toISOString().slice(0, 10); }
+        function isWeekday(d) { const g = d.getDay(); return g !== 0 && g !== 6; }
+        function nextWorkday(d) {
+            const n = new Date(d);
+            do { n.setDate(n.getDate() + 1); } while (!isWeekday(n));
+            return n;
+        }
+        function rangeBounds(range) {
+            const today = new Date(); today.setHours(0,0,0,0);
+            if (range === 'tomorrow') {
+                const t = nextWorkday(today);
+                return { from: ymd(t), to: ymd(t) };
+            }
+            if (range === 'week') {
+                const day = (today.getDay() + 6) % 7; // Пн=0
+                const mon = new Date(today); mon.setDate(today.getDate() - day);
+                const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+                return { from: ymd(mon), to: ymd(sun) };
+            }
+            // month
+            const first = new Date(today.getFullYear(), today.getMonth(), 1);
+            const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            return { from: ymd(first), to: ymd(last) };
+        }
+
+        // ============================================================
+        // ВКЛАДКА: ПРОДАЖИ (сверка 1С vs DocSales)
+        // ============================================================
+        async function loadSalesRecon() {
+            const ps = document.getElementById('reconPeriodStart').value;
+            const pe = document.getElementById('reconPeriodEnd').value;
+            const dc = document.getElementById('reconDoctorCode').value.trim();
+            const tbody = document.getElementById('salesReconBody');
+            if (!ps || !pe) {
+                showNotification('❌ Укажите начало и конец периода', 'error');
+                return;
+            }
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;">Загрузка...</td></tr>';
+            try {
+                // Читаем представление сверки из Supabase (strict filter по периоду)
+                let path = `crm_doctor_bonus_periods?period_start=eq.${ps}&period_end=eq.${pe}`;
+                if (dc) path += `&doctor_code=eq.${encodeURIComponent(dc)}`;
+                path += '&order=total_payable.desc';
+                const rows = await sbSelect(path);
+                if (!rows || rows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;">Нет данных за выбранный период (кэш 1С пуст — запустите синхронизацию)</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = rows.map(r => {
+                    const mismatch = r.reconciliation_status === 'mismatch';
+                    const statusLabel = { matched: '✅ сверено', mismatch: '⚠️ расхождение', no_data: '— нет данных' }[r.reconciliation_status] || r.reconciliation_status;
+                    return `<tr${mismatch ? ' style="background:rgba(255,84,89,0.12);"' : ''}>
+                        <td>${r.doctor_name || '—'}</td>
+                        <td>${r.doctor_code}</td>
+                        <td>${num(r.onec_amount)}</td>
+                        <td>${r.onec_checks_count || 0}</td>
+                        <td>${num(r.docsales_amount)}</td>
+                        <td${mismatch ? ' style="color:var(--error-color);font-weight:700;"' : ''}>${r.diff_percent == null ? '—' : r.diff_percent + '%'}</td>
+                        <td>${num(r.bonus_10)}</td>
+                        <td>${num(r.bonus_patients)}</td>
+                        <td><strong>${num(r.total_payable)}</strong></td>
+                        <td>${statusLabel}</td>
+                    </tr>`;
+                }).join('');
+            } catch (err) {
+                console.error('Ошибка загрузки сверки:', err);
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}. Проверьте, что миграция применена и кэш заполнен.</td></tr>`;
+            }
+        }
+
+        function num(v) { return (Number(v) || 0).toFixed(2); }
+
+        // ============================================================
+        // ВКЛАДКА: ВЫПЛАТЫ
+        // ============================================================
+        // Возвращает начисленное (из view сверки) по врачу за период — для расчёта долга
+        async function fetchAccruedByDoctor(periodFrom, periodTo) {
+            const map = {};
+            try {
+                let path = 'crm_doctor_bonus_periods?select=doctor_code,total_payable,period_start,period_end';
+                if (periodFrom) path += `&period_end=gte.${periodFrom}`;
+                if (periodTo) path += `&period_start=lte.${periodTo}`;
+                const rows = await sbSelect(path);
+                rows.forEach(r => { map[r.doctor_code] = (map[r.doctor_code] || 0) + (Number(r.total_payable) || 0); });
+            } catch (_) {}
+            return map;
+        }
+
+        async function loadPayments() {
+            const from = document.getElementById('payFrom').value;
+            const to = document.getElementById('payTo').value;
+            const docFilter = document.getElementById('payDoctorFilter').value.trim();
+            const repFilter = currentUser.role === 'admin'
+                ? document.getElementById('payRepFilter').value
+                : currentUser.login;
+            const tbody = document.getElementById('paymentsBody');
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;">Загрузка...</td></tr>';
+            try {
+                let path = 'crm_doctor_payments?order=payment_date.desc';
+                if (from) path += `&payment_date=gte.${from}`;
+                if (to) path += `&payment_date=lte.${to}`;
+                if (docFilter) path += `&doctor_code=eq.${encodeURIComponent(docFilter)}`;
+                if (repFilter) path += `&rep_login=eq.${encodeURIComponent(repFilter)}`;
+                const rows = await sbSelect(path);
+
+                // начисления для расчёта долга/просрочки
+                const accrued = await fetchAccruedByDoctor(from, to);
+                const paidByDoctor = {};
+                rows.forEach(p => { paidByDoctor[p.doctor_code] = (paidByDoctor[p.doctor_code] || 0) + (Number(p.amount) || 0); });
+
+                if (!rows || rows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;">Нет выплат</td></tr>';
+                    return;
+                }
+                const today = new Date();
+                tbody.innerHTML = rows.map(p => {
+                    const accr = accrued[p.doctor_code] || 0;
+                    const paid = paidByDoctor[p.doctor_code] || 0;
+                    const debt = Math.max(0, accr - paid);
+                    let overdue = '—';
+                    if (debt > 0 && p.period_end) {
+                        const days = Math.floor((today - new Date(p.period_end)) / 86400000);
+                        if (days > 0) overdue = `${days} дн.`;
+                    }
+                    const period = (p.period_start || p.period_end)
+                        ? `${p.period_start || '?'} — ${p.period_end || '?'}` : '—';
+                    return `<tr>
+                        <td>${formatDate(p.payment_date)}</td>
+                        <td>${p.doctor_name || ''} (${p.doctor_code})</td>
+                        <td>${p.rep_login || '—'}</td>
+                        <td>${period}</td>
+                        <td>${num(accr)}</td>
+                        <td>${num(p.amount)}</td>
+                        <td${debt > 0 ? ' style="color:var(--error-color);font-weight:600;"' : ''}>${num(debt)}</td>
+                        <td>${overdue}</td>
+                        <td>${p.comment || ''}</td>
+                    </tr>`;
+                }).join('');
+            } catch (err) {
+                console.error('Ошибка загрузки выплат:', err);
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}</td></tr>`;
+            }
+        }
+
+        function showPaymentForm() {
+            document.getElementById('payFormDoctorCode').value = '';
+            document.getElementById('payFormDoctorName').value = '';
+            document.getElementById('payFormAmount').value = '';
+            document.getElementById('payFormDate').value = ymd(new Date());
+            document.getElementById('payFormPeriodStart').value = '';
+            document.getElementById('payFormPeriodEnd').value = '';
+            document.getElementById('payFormComment').value = '';
+            document.getElementById('paymentModal').classList.add('active');
+        }
+        function hidePaymentForm() { document.getElementById('paymentModal').classList.remove('active'); }
+
+        async function savePayment() {
+            const doctor_code = document.getElementById('payFormDoctorCode').value.trim();
+            const amount = parseFloat(document.getElementById('payFormAmount').value);
+            const payment_date = document.getElementById('payFormDate').value;
+            if (!doctor_code || isNaN(amount) || !payment_date) {
+                showNotification('❌ Заполните код врача, сумму и дату', 'error');
+                return;
+            }
+            const body = {
+                doctor_code,
+                doctor_name: document.getElementById('payFormDoctorName').value.trim() || null,
+                rep_login: activeRepLogin(),
+                amount,
+                payment_date,
+                period_start: document.getElementById('payFormPeriodStart').value || null,
+                period_end: document.getElementById('payFormPeriodEnd').value || null,
+                comment: document.getElementById('payFormComment').value.trim() || null,
+                created_by: currentUser.login
+            };
+            try {
+                await sbInsert('crm_doctor_payments', body);
+                hidePaymentForm();
+                showNotification('✅ Выплата создана', 'success');
+                loadPayments();
+            } catch (err) {
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+        }
+
+        // ============================================================
+        // ВКЛАДКА: ПЛАН
+        // ============================================================
+        const PLAN_STATUS_LABEL = {
+            planned: '🕓 запланирован', visited: '✅ выполнен', missed: '❌ пропущен',
+            carried_over: '↪️ перенесён', cancelled: '🚫 отменён'
+        };
+
+        async function loadPlan() {
+            const rep = currentUser.role === 'admin'
+                ? (document.getElementById('planRepSelect').value || activeRepLogin())
+                : currentUser.login;
+            const range = document.getElementById('planRange').value;
+            const { from, to } = rangeBounds(range);
+            const tbody = document.getElementById('planBody');
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Загрузка...</td></tr>';
+            try {
+                const path = `crm_rep_plan_items?rep_login=eq.${encodeURIComponent(rep)}`
+                    + `&plan_date=gte.${from}&plan_date=lte.${to}&order=plan_date.asc`;
+                const rows = await sbSelect(path);
+                if (!rows || rows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Нет плановых пунктов</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = rows.map(p => `<tr>
+                    <td>${formatDate(p.plan_date)}</td>
+                    <td>${p.doctor_name || ''} (${p.doctor_code || '—'})</td>
+                    <td>${PLAN_STATUS_LABEL[p.status] || p.status}</td>
+                    <td>${num(p.planned_payment_amount)}</td>
+                    <td>${num(p.actual_payment_amount)}</td>
+                    <td>${p.original_plan_date ? formatDate(p.original_plan_date) : '—'}</td>
+                    <td>${p.comment || ''}</td>
+                    <td>
+                        ${p.status === 'planned' ? `<button class="btn btn-sm btn-secondary" onclick="markPlanStatus(${p.id},'cancelled')">отменить</button>` : ''}
+                    </td>
+                </tr>`).join('');
+            } catch (err) {
+                console.error('Ошибка загрузки плана:', err);
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}</td></tr>`;
+            }
+        }
+
+        function showPlanItemForm() {
+            document.getElementById('planFormDoctorCode').value = '';
+            document.getElementById('planFormDoctorName').value = '';
+            document.getElementById('planFormDate').value = ymd(nextWorkday(new Date()));
+            document.getElementById('planFormAmount').value = '0';
+            document.getElementById('planFormComment').value = '';
+            document.getElementById('planItemModal').classList.add('active');
+        }
+        function hidePlanItemForm() { document.getElementById('planItemModal').classList.remove('active'); }
+
+        async function savePlanItem() {
+            const doctor_code = document.getElementById('planFormDoctorCode').value.trim();
+            const plan_date = document.getElementById('planFormDate').value;
+            if (!doctor_code || !plan_date) {
+                showNotification('❌ Укажите код врача и дату', 'error');
+                return;
+            }
+            if (!isWeekday(new Date(plan_date))) {
+                showNotification('❌ План можно ставить только на будни', 'error');
+                return;
+            }
+            const rep = currentUser.role === 'admin'
+                ? (document.getElementById('planRepSelect').value || activeRepLogin())
+                : currentUser.login;
+            const body = {
+                rep_login: rep,
+                doctor_code,
+                doctor_name: document.getElementById('planFormDoctorName').value.trim() || null,
+                plan_date,
+                status: 'planned',
+                planned_payment_amount: parseFloat(document.getElementById('planFormAmount').value) || 0,
+                comment: document.getElementById('planFormComment').value.trim() || null,
+                created_by: currentUser.login
+            };
+            try {
+                await sbInsert('crm_rep_plan_items', body);
+                hidePlanItemForm();
+                showNotification('✅ Добавлено в план', 'success');
+                loadPlan();
+            } catch (err) {
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+        }
+
+        async function markPlanStatus(id, status, extra) {
+            try {
+                await sbPatch('crm_rep_plan_items', `id=eq.${id}`, Object.assign({ status }, extra || {}));
+                showNotification('✅ Обновлено', 'success');
+                loadPlan();
+            } catch (err) {
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+        }
+
+        // Перенос всех просроченных невыполненных пунктов на следующий рабочий день
+        async function carryOverMissedPlan() {
+            const rep = currentUser.role === 'admin'
+                ? (document.getElementById('planRepSelect').value || activeRepLogin())
+                : currentUser.login;
+            const today = ymd(new Date());
+            try {
+                const stale = await sbSelect(
+                    `crm_rep_plan_items?rep_login=eq.${encodeURIComponent(rep)}`
+                    + `&status=eq.planned&plan_date=lt.${today}&order=plan_date.asc`);
+                if (!stale || stale.length === 0) {
+                    showNotification('Нет невыполненных пунктов для переноса', 'success');
+                    return;
+                }
+                for (const item of stale) {
+                    // Помечаем старый как перенесённый
+                    await sbPatch('crm_rep_plan_items', `id=eq.${item.id}`, { status: 'carried_over' });
+                    // Создаём новый на следующий рабочий день
+                    await sbInsert('crm_rep_plan_items', {
+                        rep_login: item.rep_login,
+                        doctor_code: item.doctor_code,
+                        doctor_name: item.doctor_name,
+                        plan_date: ymd(nextWorkday(new Date())),
+                        original_plan_date: item.original_plan_date || item.plan_date,
+                        status: 'planned',
+                        planned_payment_amount: item.planned_payment_amount,
+                        comment: item.comment,
+                        created_by: currentUser.login
+                    });
+                }
+                showNotification(`↪️ Перенесено пунктов: ${stale.length}`, 'success');
+                loadPlan();
+            } catch (err) {
+                showNotification('❌ Ошибка переноса: ' + err.message, 'error');
+            }
+        }
+
+        // Вызывается после сохранения визита: пытается засчитать плановый пункт того же
+        // врача за сегодня как visited. Возвращает true, если пункт найден и закрыт.
+        async function tryFulfillPlanForVisit(repLogin, doctorCode, amount, visitId) {
+            try {
+                const today = ymd(new Date());
+                const items = await sbSelect(
+                    `crm_rep_plan_items?rep_login=eq.${encodeURIComponent(repLogin)}`
+                    + `&doctor_code=eq.${encodeURIComponent(doctorCode)}`
+                    + `&plan_date=eq.${today}&status=eq.planned&limit=1`);
+                if (items && items.length > 0) {
+                    await sbPatch('crm_rep_plan_items', `id=eq.${items[0].id}`, {
+                        status: 'visited',
+                        actual_payment_amount: amount || 0,
+                        visit_id: visitId || null
+                    });
+                    return true;
+                }
+            } catch (err) {
+                console.error('tryFulfillPlanForVisit:', err);
+            }
+            return false;
+        }
+
+        // Начисляет 1 балл за посещённого врача (идемпотентно по visit_id)
+        async function awardVisitPoint(repLogin, visitId) {
+            try {
+                await sbInsert('crm_rep_points_ledger', {
+                    rep_login: repLogin, points: 1, reason: 'visit',
+                    ref_type: 'visit', ref_id: String(visitId), created_by: currentUser.login
+                });
+            } catch (_) { /* дубликат — игнорируем (unique индекс) */ }
+        }
+
+        // ============================================================
+        // ВКЛАДКА: ПРОФИЛЬ ТП
+        // ============================================================
+        async function loadProfile() {
+            const rep = currentUser.role === 'admin'
+                ? (document.getElementById('profileRepSelect').value || activeRepLogin())
+                : currentUser.login;
+
+            // Прогресс визитов — считаем из appData (визиты текущего просматриваемого ТП),
+            // если admin выбрал другого ТП в профиле — берём план/факт из БД ниже.
+            const month = rangeBounds('month');
+            const week = rangeBounds('week');
+
+            // Визиты ТП берём из crm_data выбранного ТП
+            let visits = [];
+            try {
+                const rows = await sbSelect(`crm_data?user_login=eq.${encodeURIComponent(rep)}&order=id.desc&limit=1`);
+                if (rows && rows.length && rows[0].data && Array.isArray(rows[0].data.visits)) {
+                    visits = rows[0].data.visits;
+                }
+            } catch (_) {}
+
+            const inRange = (v, b) => { const d = ymd(new Date(v.visitTime)); return d >= b.from && d <= b.to; };
+            const monthVisits = visits.filter(v => inRange(v, month));
+            const weekVisits = visits.filter(v => inRange(v, week));
+
+            // План на месяц/неделю
+            let monthPlan = 0, weekPlan = 0;
+            try {
+                const planRows = await sbSelect(
+                    `crm_rep_plan_items?rep_login=eq.${encodeURIComponent(rep)}`
+                    + `&plan_date=gte.${month.from}&plan_date=lte.${month.to}&select=plan_date,status`);
+                monthPlan = planRows.filter(p => p.status !== 'cancelled').length;
+                weekPlan = planRows.filter(p => p.status !== 'cancelled' && p.plan_date >= week.from && p.plan_date <= week.to).length;
+            } catch (_) {}
+
+            document.getElementById('profMonthVisits').textContent = monthVisits.length;
+            document.getElementById('profMonthPlanLabel').textContent = `из ${monthPlan} план (ост. ${Math.max(0, monthPlan - monthVisits.length)})`;
+            document.getElementById('profWeekVisits').textContent = weekVisits.length;
+            document.getElementById('profWeekPlanLabel').textContent = `из ${weekPlan} план (ост. ${Math.max(0, weekPlan - weekVisits.length)})`;
+
+            // Долг / просрочка по выплатам
+            let debt = 0, overdueCount = 0;
+            try {
+                const payments = await sbSelect(`crm_doctor_payments?rep_login=eq.${encodeURIComponent(rep)}`);
+                const accrued = await fetchAccruedByDoctor(null, null);
+                const paidByDoc = {};
+                payments.forEach(p => { paidByDoc[p.doctor_code] = (paidByDoc[p.doctor_code] || 0) + (Number(p.amount) || 0); });
+                const today = new Date();
+                Object.keys(accrued).forEach(code => {
+                    const d = Math.max(0, accrued[code] - (paidByDoc[code] || 0));
+                    debt += d;
+                });
+                payments.forEach(p => {
+                    const d = Math.max(0, (accrued[p.doctor_code] || 0) - (paidByDoc[p.doctor_code] || 0));
+                    if (d > 0 && p.period_end && (today - new Date(p.period_end)) / 86400000 > 0) overdueCount++;
+                });
+            } catch (_) {}
+            document.getElementById('profDebt').textContent = num(debt);
+            document.getElementById('profOverdueLabel').textContent = `просрочка: ${overdueCount}`;
+
+            // Баллы
+            let points = 0, ledger = [];
+            try {
+                ledger = await sbSelect(`crm_rep_points_ledger?rep_login=eq.${encodeURIComponent(rep)}&order=created_at.desc`);
+                points = ledger.reduce((s, l) => s + (Number(l.points) || 0), 0);
+            } catch (_) {}
+            document.getElementById('profPoints').textContent = points;
+
+            const lb = document.getElementById('pointsLedgerBody');
+            const reasonLabel = { visit: 'визит', payment_on_time: 'выплата вовремя', manual_credit: 'начисление', manual_debit: 'списание' };
+            lb.innerHTML = ledger.length ? ledger.map(l => `<tr>
+                <td>${formatDate(l.created_at)}</td>
+                <td${l.points < 0 ? ' style="color:var(--error-color);"' : ''}>${l.points > 0 ? '+' : ''}${l.points}</td>
+                <td>${reasonLabel[l.reason] || l.reason}</td>
+                <td>${l.comment || ''}</td>
+            </tr>`).join('') : '<tr><td colspan="4" style="text-align:center;padding:30px;">Нет записей</td></tr>';
+
+            // запоминаем для adjustPoints
+            document.getElementById('profileSection').dataset.rep = rep;
+        }
+
+        async function adjustPoints() {
+            if (currentUser.role !== 'admin') return;
+            const rep = document.getElementById('profileSection').dataset.rep
+                || document.getElementById('profileRepSelect').value;
+            const pts = parseInt(document.getElementById('adjPoints').value, 10);
+            if (!rep || isNaN(pts) || pts === 0) {
+                showNotification('❌ Укажите ненулевое число баллов', 'error');
+                return;
+            }
+            try {
+                await sbInsert('crm_rep_points_ledger', {
+                    rep_login: rep, points: pts,
+                    reason: pts > 0 ? 'manual_credit' : 'manual_debit',
+                    comment: document.getElementById('adjPointsComment').value.trim() || null,
+                    created_by: currentUser.login
+                });
+                document.getElementById('adjPoints').value = '0';
+                document.getElementById('adjPointsComment').value = '';
+                showNotification('✅ Баллы обновлены', 'success');
+                loadProfile();
+            } catch (err) {
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+        }
+
+        // ============================================================
+        // ВКЛАДКА: АДМИН-СТАТИСТИКА
+        // ============================================================
+        async function loadAdminStats() {
+            if (currentUser.role !== 'admin') return;
+            const range = document.getElementById('adminStatsRange').value;
+            const { from, to } = rangeBounds(range);
+            const tbody = document.getElementById('adminStatsBody');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;">Загрузка...</td></tr>';
+            try {
+                if (allUsers.length === 0) await loadAllUsers();
+                const reps = allUsers.filter(u => u.role === 'salesrep');
+
+                // Параллельно тянем визиты (crm_data), выплаты, баллы для всех ТП
+                const results = await Promise.all(reps.map(async (rep) => {
+                    let visits = [];
+                    try {
+                        const rows = await sbSelect(`crm_data?user_login=eq.${encodeURIComponent(rep.login)}&order=id.desc&limit=1`);
+                        if (rows && rows.length && rows[0].data && Array.isArray(rows[0].data.visits)) visits = rows[0].data.visits;
+                    } catch (_) {}
+                    const visitsInRange = visits.filter(v => { const d = ymd(new Date(v.visitTime)); return d >= from && d <= to; });
+                    const moneySpent = visitsInRange.reduce((s, v) => s + (Number(v.amount) || 0), 0);
+
+                    let overdue = 0;
+                    try {
+                        const payments = await sbSelect(`crm_doctor_payments?rep_login=eq.${encodeURIComponent(rep.login)}`);
+                        const accrued = await fetchAccruedByDoctor(null, null);
+                        const paidByDoc = {};
+                        payments.forEach(p => { paidByDoc[p.doctor_code] = (paidByDoc[p.doctor_code] || 0) + (Number(p.amount) || 0); });
+                        const today = new Date();
+                        payments.forEach(p => {
+                            const d = Math.max(0, (accrued[p.doctor_code] || 0) - (paidByDoc[p.doctor_code] || 0));
+                            if (d > 0 && p.period_end && (today - new Date(p.period_end)) / 86400000 > 0) overdue++;
+                        });
+                    } catch (_) {}
+
+                    let points = 0;
+                    try {
+                        const ledger = await sbSelect(`crm_rep_points_ledger?rep_login=eq.${encodeURIComponent(rep.login)}&select=points`);
+                        points = ledger.reduce((s, l) => s + (Number(l.points) || 0), 0);
+                    } catch (_) {}
+
+                    return { name: `${rep.name} (${rep.login})`, visits: visitsInRange.length, overdue, moneySpent, points };
+                }));
+
+                tbody.innerHTML = results.length ? results.map(r => `<tr>
+                    <td>${r.name}</td>
+                    <td>${r.visits}</td>
+                    <td${r.overdue > 0 ? ' style="color:var(--error-color);font-weight:600;"' : ''}>${r.overdue}</td>
+                    <td>${num(r.moneySpent)}</td>
+                    <td>${r.points}</td>
+                </tr>`).join('') : '<tr><td colspan="5" style="text-align:center;padding:30px;">Нет торговых представителей</td></tr>';
+            } catch (err) {
+                console.error('Ошибка статистики:', err);
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}</td></tr>`;
+            }
         }
 
         // ============================================================
