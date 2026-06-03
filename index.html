@@ -1192,8 +1192,6 @@
         }
     </style>
 
-    <!-- SheetJS library for Excel parsing -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <!-- Страница авторизации -->
@@ -1229,7 +1227,6 @@
                 <div class="nav-tabs" id="topNavTabs">
                     <button class="nav-tab" id="dashboardNavBtn" onclick="showDashboard()" style="display: none;">📊 Главная</button>
                     <button class="nav-tab" id="doctorsBtn" onclick="showDoctorsSection()" style="display: none;">🧑‍⚕️ Врачи</button>
-                    <button class="nav-tab" id="doctorSalesBtn" onclick="showDoctorSalesSection()" style="display: none;">📈 Продажи врачей</button>
                     <button class="nav-tab" id="manageRepsBtn" onclick="showManageRepsSection()" style="display: none;">👥 Сотрудники</button>
                     <button class="nav-tab" id="salesReconBtn" onclick="showSalesReconSection()" style="display: none;">💵 Продажи</button>
                     <button class="nav-tab" id="paymentsBtn" onclick="showPaymentsSection()" style="display: none;">💳 Выплаты</button>
@@ -1404,132 +1401,6 @@
                         </div>
                         <div style="margin-top: 16px;">
                             <button class="btn btn-success" onclick="createNewRep()">➕ Создать сотрудника</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== Раздел продаж врачей (только для администраторов) ===== -->
-            <div id="doctorSalesSection" style="display: none;">
-                <div class="section-header">
-                    <h2 class="section-title">📊 Отчеты о продажах врачей</h2>
-                    <div class="header-actions">
-                        <input type="file" id="salesFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleSalesFileUpload(event)">
-                        <button class="btn btn-primary" onclick="document.getElementById('salesFileInput').click()">
-                            📤 Загрузить таблицу
-                        </button>
-                        <button class="btn btn-success" onclick="exportSalesData()">
-                            📥 Экспорт данных
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Фильтры -->
-                <div class="filters" style="margin-bottom: 20px;">
-                    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
-                        <div class="form-group" style="margin: 0;">
-                            <label style="margin-bottom: 5px; display: block; font-weight: 500;">Период:</label>
-                            <div style="display: flex; gap: 10px;">
-                                <input type="date" id="salesDateFrom" class="form-control" style="width: 150px;">
-                                <span style="line-height: 38px;">—</span>
-                                <input type="date" id="salesDateTo" class="form-control" style="width: 150px;">
-                            </div>
-                        </div>
-                        <div class="form-group" style="margin: 0;">
-                            <label style="margin-bottom: 5px; display: block; font-weight: 500;">Поиск врача:</label>
-                            <input type="text" id="salesDoctorSearch" class="form-control" placeholder="Введите имя врача" style="width: 250px;">
-                        </div>
-                        <div style="margin-top: 27px;">
-                            <button class="btn btn-primary" onclick="filterSalesData()">🔍 Применить фильтр</button>
-                            <button class="btn btn-secondary" onclick="resetSalesFilters()">🔄 Сбросить</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Статистика -->
-                <div class="dashboard-grid" style="margin-bottom: 30px;">
-                    <div class="dashboard-card blue">
-                        <div class="dashboard-card-header">
-                            <div class="dashboard-card-title">🏆 Лучший врач (текущий период)</div>
-                        </div>
-                        <div class="dashboard-card-value" id="topDoctorName" style="font-size: 1.2em;">—</div>
-                        <div class="dashboard-card-label" id="topDoctorAmount">0 сомони</div>
-                    </div>
-                    <div class="dashboard-card green">
-                        <div class="dashboard-card-header">
-                            <div class="dashboard-card-title">👑 Лучший врач за все время</div>
-                        </div>
-                        <div class="dashboard-card-value" id="allTimeDoctorName" style="font-size: 1.2em;">—</div>
-                        <div class="dashboard-card-label" id="allTimeDoctorAmount">0 сомони</div>
-                    </div>
-                    <div class="dashboard-card purple">
-                        <div class="dashboard-card-header">
-                            <div class="dashboard-card-title">📈 Всего продаж</div>
-                        </div>
-                        <div class="dashboard-card-value" id="totalSalesAmount">0</div>
-                        <div class="dashboard-card-label">сомони</div>
-                    </div>
-                    <div class="dashboard-card orange">
-                        <div class="dashboard-card-header">
-                            <div class="dashboard-card-title">👨‍⚕️ Количество врачей</div>
-                        </div>
-                        <div class="dashboard-card-value" id="totalDoctorsCount">0</div>
-                        <div class="dashboard-card-label">врачей</div>
-                    </div>
-                </div>
-
-                <!-- Топ 10 -->
-                <div class="card" style="margin-bottom: 30px;">
-                    <div class="card-header">
-                        <h3 style="margin: 0;">🌟 Топ 10 врачей за выбранный период</h3>
-                    </div>
-                    <div class="card-body">
-                        <div style="overflow-x: auto;">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>№</th>
-                                        <th>Врач</th>
-                                        <th>Сумма продаж</th>
-                                        <th>Количество записей</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="top10Body">
-                                    <tr>
-                                        <td colspan="4" style="text-align: center; padding: 40px;">
-                                            Загрузите данные для отображения статистики
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Таблица всех продаж -->
-                <div class="card">
-                    <div class="card-header">
-                        <h3 style="margin: 0;">📋 Все продажи</h3>
-                    </div>
-                    <div class="card-body">
-                        <div style="overflow-x: auto;">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Дата</th>
-                                        <th>Врач</th>
-                                        <th>Сумма</th>
-                                        <th>Действия</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="salesTableBody">
-                                    <tr>
-                                        <td colspan="4" style="text-align: center; padding: 40px;">
-                                            Нет данных. Загрузите таблицу продаж.
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
                         </div>
                     </div>
                 </div>
@@ -1810,38 +1681,8 @@
                 </div>
             </div>
 
-            <!-- Модальное окно редактирования записи продаж -->
-            <div id="editSaleModal" class="modal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3>Редактировать запись</h3>
-                        <span class="close-btn" onclick="hideEditSaleModal()">&times;</span>
-                    </div>
-                    <div class="modal-body">
-                        <form id="editSaleForm">
-                            <input type="hidden" id="editSaleIndex">
-                            <div class="form-group">
-                                <label class="form-label">Дата</label>
-                                <input type="date" class="form-control" id="editSaleDate" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Врач</label>
-                                <input type="text" class="form-control" id="editSaleDoctor" required>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Сумма</label>
-                                <input type="number" step="0.01" class="form-control" id="editSaleAmount" required>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="hideEditSaleModal()">Отмена</button>
-                        <button class="btn btn-success" onclick="saveSaleEdit()">Сохранить</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== Панель управления визитами ===== -->
+            <!-- ===== Панель управления визитами (только на главной) ===== -->
+            <div id="visitsPanel">
             <div class="section-header" style="margin-top: 32px;">
                 <h2 class="section-title">Визиты</h2>
             </div>
@@ -1875,6 +1716,7 @@
                     <h3>Нет визитов</h3>
                     <p>Добавьте первый визит, нажав кнопку "Добавить визит"</p>
                 </div>
+            </div>
             </div>
         </div>
     </div>
@@ -2119,7 +1961,6 @@
         // ============================================================
         let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
         let currentRecordId = null;       // ID записи в crm_data для текущего ТП
-        let salesRecordId = null;         // ID записи в doctor_sales
 
         // appData — данные ТЕКУЩЕГО торгового представителя (или выбранного администратором)
         let appData = {
@@ -2143,11 +1984,6 @@
         let selectedDoctor = null;
         let editingVisitId = null;
         let isCompactView = false;
-
-        // ---- Doctor Sales ----
-        let doctorSalesData = [];
-        let filteredSalesData = [];
-        let allTimeSalesData = [];
 
         // ============================================================
         // ИНИЦИАЛИЗАЦИЯ
@@ -2267,12 +2103,15 @@
             // Панели видимости по роли
             document.getElementById('adminDashboard').style.display = 'block';
             hideAllSubSections();
+            // Визиты показываем только на главной
+            const vp = document.getElementById('visitsPanel');
+            if (vp) vp.style.display = 'block';
 
             const isAdmin = currentUser.role === 'admin';
             // Кнопка возврата на дашборд всегда видна после входа
             document.getElementById('dashboardNavBtn').style.display = 'inline-flex';
             // Кнопки, доступные только администратору
-            ['doctorSalesBtn','manageRepsBtn','adminStatsBtn'].forEach(id =>
+            ['manageRepsBtn','adminStatsBtn'].forEach(id =>
                 document.getElementById(id).style.display = isAdmin ? 'inline-flex' : 'none');
             // Кнопки, доступные обеим ролям
             ['doctorsBtn','salesReconBtn','paymentsBtn','planBtn','profileBtn'].forEach(id =>
@@ -2295,14 +2134,13 @@
         }
 
         // Список идентификаторов новых вкладок-секций
-        const SUB_SECTION_IDS = ['doctorsSection','doctorSalesSection','manageRepsSection','salesReconSection',
+        const SUB_SECTION_IDS = ['doctorsSection','manageRepsSection','salesReconSection',
             'paymentsSection','planSection','profileSection','adminStatsSection'];
-        const NAV_BTN_IDS = ['dashboardNavBtn','doctorsBtn','doctorSalesBtn','manageRepsBtn','salesReconBtn',
+        const NAV_BTN_IDS = ['dashboardNavBtn','doctorsBtn','manageRepsBtn','salesReconBtn',
             'paymentsBtn','planBtn','profileBtn','adminStatsBtn'];
         // Соответствие секция → кнопка навигации (для подсветки активной вкладки)
         const SECTION_TO_NAV_BTN = {
             doctorsSection: 'doctorsBtn',
-            doctorSalesSection: 'doctorSalesBtn',
             manageRepsSection: 'manageRepsBtn',
             salesReconSection: 'salesReconBtn',
             paymentsSection: 'paymentsBtn',
@@ -2342,6 +2180,9 @@
         function openSubSection(sectionId) {
             document.getElementById('adminDashboard').style.display = 'none';
             hideAllSubSections();
+            // Визиты живут только на главной — скрываем на всех вкладках
+            const vp = document.getElementById('visitsPanel');
+            if (vp) vp.style.display = 'none';
             const el = document.getElementById(sectionId);
             if (el) el.style.display = 'block';
             setActiveNav(SECTION_TO_NAV_BTN[sectionId]);
@@ -2600,12 +2441,6 @@
             } catch (err) {
                 showNotification('❌ Ошибка: ' + err.message, 'error');
             }
-        }
-
-        function showDoctorSalesSection() {
-            if (!currentUser || currentUser.role !== 'admin') return;
-            openSubSection('doctorSalesSection');
-            loadSalesDataFromSupabase();
         }
 
         function showManageRepsSection() {
@@ -3718,245 +3553,6 @@
         }
 
         // ============================================================
-        // ПРОДАЖИ ВРАЧЕЙ (Doctor Sales)
-        // ============================================================
-
-        async function handleSalesFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                    const parsedData = parseSalesData(jsonData);
-                    if (parsedData.length === 0) { showNotification('Не удалось распознать данные в файле', 'error'); return; }
-                    doctorSalesData = [...doctorSalesData, ...parsedData];
-                    allTimeSalesData = [...doctorSalesData];
-                    filteredSalesData = [...doctorSalesData];
-                    await saveSalesDataToSupabase();
-                    updateSalesDisplay();
-                    showNotification(`Загружено ${parsedData.length} записей`, 'success');
-                    event.target.value = '';
-                } catch (error) {
-                    console.error('Ошибка при чтении файла:', error);
-                    showNotification('Ошибка при чтении файла', 'error');
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        function parseSalesData(jsonData) {
-            const parsed = [];
-            for (let i = 0; i < jsonData.length; i++) {
-                const row = jsonData[i];
-                if (!row || row.length < 2) continue;
-                const firstCell = String(row[0] || '').trim();
-                if (firstCell.includes('Продажи') || firstCell.includes('Вид дисконтной') ||
-                    firstCell.includes('для учета') || firstCell === '' ||
-                    firstCell.includes('Дисконтная карта')) continue;
-                const doctorName = String(row[0] || '').trim();
-                const amount = parseFloat(String(row[2] || row[1] || '0').replace(/\s/g, '').replace(',', '.'));
-                if (doctorName && amount > 0 && amount < 100000) {
-                    parsed.push({ date: new Date().toISOString().split('T')[0], doctor: doctorName, amount: amount });
-                }
-            }
-            return parsed;
-        }
-
-        async function saveSalesDataToSupabase() {
-            try {
-                const payload = {
-                    user_login: currentUser.login,
-                    sales_data: doctorSalesData,
-                    updated_at: new Date().toISOString()
-                };
-                let response;
-                if (salesRecordId) {
-                    response = await fetch(`${SUPABASE_URL}/rest/v1/doctor_sales?id=eq.${salesRecordId}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Prefer': 'return=representation' },
-                        body: JSON.stringify(payload)
-                    });
-                } else {
-                    response = await fetch(`${SUPABASE_URL}/rest/v1/doctor_sales`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Prefer': 'return=representation' },
-                        body: JSON.stringify(payload)
-                    });
-                }
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const result = await response.json();
-                if (result && result.length > 0) salesRecordId = result[0].id;
-            } catch (error) {
-                console.error('Ошибка сохранения данных продаж:', error);
-                showNotification('Ошибка сохранения: ' + error.message, 'error');
-            }
-        }
-
-        async function loadSalesDataFromSupabase() {
-            try {
-                const response = await fetch(
-                    `${SUPABASE_URL}/rest/v1/doctor_sales?user_login=eq.${encodeURIComponent(currentUser.login)}&order=id.desc&limit=1`,
-                    { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` } }
-                );
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const result = await response.json();
-                if (result && result.length > 0) {
-                    const data = result[0];
-                    salesRecordId = data.id;
-                    if (data.sales_data && Array.isArray(data.sales_data)) {
-                        doctorSalesData = data.sales_data;
-                        allTimeSalesData = [...doctorSalesData];
-                        filteredSalesData = [...doctorSalesData];
-                        updateSalesDisplay();
-                        if (doctorSalesData.length > 0) showNotification(`Загружено ${doctorSalesData.length} записей`, 'success');
-                    }
-                } else {
-                    doctorSalesData = []; allTimeSalesData = []; filteredSalesData = [];
-                    updateSalesDisplay();
-                }
-            } catch (error) {
-                console.error('Ошибка загрузки данных продаж:', error);
-                doctorSalesData = []; allTimeSalesData = []; filteredSalesData = [];
-                updateSalesDisplay();
-            }
-        }
-
-        function updateSalesDisplay() { updateSalesTable(); updateTop10Table(); updateSalesStats(); }
-
-        function updateSalesTable() {
-            const tbody = document.getElementById('salesTableBody');
-            if (filteredSalesData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;">Нет данных для отображения</td></tr>'; return;
-            }
-            const sorted = [...filteredSalesData].sort((a, b) => new Date(b.date) - new Date(a.date));
-            tbody.innerHTML = sorted.map((sale, index) => `
-                <tr>
-                    <td>${formatDate(sale.date)}</td>
-                    <td>${sale.doctor}</td>
-                    <td>${sale.amount.toFixed(2)} сомони</td>
-                    <td>
-                        <button class="btn btn-sm btn-secondary" onclick="showEditSaleModal(${index})">✏️</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteSale(${index})">🗑️</button>
-                    </td>
-                </tr>`).join('');
-        }
-
-        function updateTop10Table() {
-            const tbody = document.getElementById('top10Body');
-            if (filteredSalesData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:40px;">Загрузите данные для отображения статистики</td></tr>'; return;
-            }
-            const stats = {};
-            filteredSalesData.forEach(sale => {
-                if (!stats[sale.doctor]) stats[sale.doctor] = { total: 0, count: 0 };
-                stats[sale.doctor].total += sale.amount;
-                stats[sale.doctor].count++;
-            });
-            const sorted = Object.entries(stats).sort((a, b) => b[1].total - a[1].total).slice(0, 10);
-            tbody.innerHTML = sorted.map(([doctor, s], i) => `
-                <tr><td>${i+1}</td><td>${doctor}</td><td><strong>${s.total.toFixed(2)}</strong> сомони</td><td>${s.count}</td></tr>`).join('');
-        }
-
-        function updateSalesStats() {
-            if (filteredSalesData.length > 0) {
-                const stats = {};
-                filteredSalesData.forEach(sale => { if (!stats[sale.doctor]) stats[sale.doctor] = 0; stats[sale.doctor] += sale.amount; });
-                const top = Object.entries(stats).sort((a, b) => b[1] - a[1])[0];
-                document.getElementById('topDoctorName').textContent = top[0];
-                document.getElementById('topDoctorAmount').textContent = `${top[1].toFixed(2)} сомони`;
-                document.getElementById('totalSalesAmount').textContent = filteredSalesData.reduce((s, r) => s + r.amount, 0).toFixed(2);
-                document.getElementById('totalDoctorsCount').textContent = Object.keys(stats).length;
-            } else {
-                document.getElementById('topDoctorName').textContent = '—';
-                document.getElementById('topDoctorAmount').textContent = '0 сомони';
-                document.getElementById('totalSalesAmount').textContent = '0';
-                document.getElementById('totalDoctorsCount').textContent = '0';
-            }
-            if (allTimeSalesData.length > 0) {
-                const stats = {};
-                allTimeSalesData.forEach(sale => { if (!stats[sale.doctor]) stats[sale.doctor] = 0; stats[sale.doctor] += sale.amount; });
-                const top = Object.entries(stats).sort((a, b) => b[1] - a[1])[0];
-                document.getElementById('allTimeDoctorName').textContent = top[0];
-                document.getElementById('allTimeDoctorAmount').textContent = `${top[1].toFixed(2)} сомони`;
-            } else {
-                document.getElementById('allTimeDoctorName').textContent = '—';
-                document.getElementById('allTimeDoctorAmount').textContent = '0 сомони';
-            }
-        }
-
-        function filterSalesData() {
-            const from = document.getElementById('salesDateFrom').value;
-            const to = document.getElementById('salesDateTo').value;
-            const search = document.getElementById('salesDoctorSearch').value.toLowerCase();
-            filteredSalesData = doctorSalesData.filter(sale => {
-                let m = true;
-                if (from && sale.date < from) m = false;
-                if (to && sale.date > to) m = false;
-                if (search && !sale.doctor.toLowerCase().includes(search)) m = false;
-                return m;
-            });
-            updateSalesDisplay();
-        }
-
-        function resetSalesFilters() {
-            document.getElementById('salesDateFrom').value = '';
-            document.getElementById('salesDateTo').value = '';
-            document.getElementById('salesDoctorSearch').value = '';
-            filteredSalesData = [...doctorSalesData];
-            updateSalesDisplay();
-        }
-
-        function showEditSaleModal(filteredIndex) {
-            const sale = filteredSalesData[filteredIndex];
-            const origIdx = doctorSalesData.findIndex(s => s.date === sale.date && s.doctor === sale.doctor && s.amount === sale.amount);
-            document.getElementById('editSaleIndex').value = origIdx;
-            document.getElementById('editSaleDate').value = sale.date;
-            document.getElementById('editSaleDoctor').value = sale.doctor;
-            document.getElementById('editSaleAmount').value = sale.amount;
-            document.getElementById('editSaleModal').style.display = 'flex';
-        }
-
-        function hideEditSaleModal() { document.getElementById('editSaleModal').style.display = 'none'; }
-
-        async function saveSaleEdit() {
-            const index = parseInt(document.getElementById('editSaleIndex').value);
-            const date = document.getElementById('editSaleDate').value;
-            const doctor = document.getElementById('editSaleDoctor').value;
-            const amount = parseFloat(document.getElementById('editSaleAmount').value);
-            if (!date || !doctor || !amount) { showNotification('Заполните все поля', 'error'); return; }
-            doctorSalesData[index] = { date, doctor, amount };
-            allTimeSalesData = [...doctorSalesData];
-            await saveSalesDataToSupabase();
-            filterSalesData();
-            hideEditSaleModal();
-            showNotification('Запись обновлена', 'success');
-        }
-
-        async function deleteSale(filteredIndex) {
-            if (!confirm('Удалить эту запись?')) return;
-            const sale = filteredSalesData[filteredIndex];
-            const origIdx = doctorSalesData.findIndex(s => s.date === sale.date && s.doctor === sale.doctor && s.amount === sale.amount);
-            doctorSalesData.splice(origIdx, 1);
-            allTimeSalesData = [...doctorSalesData];
-            await saveSalesDataToSupabase();
-            filterSalesData();
-            showNotification('Запись удалена', 'success');
-        }
-
-        function exportSalesData() {
-            if (filteredSalesData.length === 0) { showNotification('Нет данных для экспорта', 'error'); return; }
-            const ws = XLSX.utils.json_to_sheet(filteredSalesData.map(sale => ({ 'Дата': sale.date, 'Врач': sale.doctor, 'Сумма': sale.amount })));
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Продажи');
-            XLSX.writeFile(wb, `prodazhi-vrachi-${new Date().toISOString().split('T')[0]}.xlsx`);
-            showNotification('Данные экспортированы', 'success');
-        }
-
-        // ============================================================
         // ОБЩИЙ ХЕЛПЕР ЗАПРОСОВ К SUPABASE REST
         // ============================================================
         function sbHeaders(extra) {
@@ -4021,14 +3617,28 @@
         // ============================================================
         // ВКЛАДКА: ПРОДАЖИ (сверка 1С vs DocSales)
         // ============================================================
-        // Загружает строки кэша 1С/DocSales, пересекающие выбранный период.
-        // Пересечение: row.period_start <= pe AND row.period_end >= ps.
+        // Загружает строки кэша 1С/DocSales строго за выбранный период [ps, pe].
+        // Строгое правило (работает для любых произвольных дат, не только пресетов месяца):
+        //   • если у строки есть sale_date — она попадает в результат, когда
+        //     ps <= sale_date <= pe (точная фильтрация по дню продажи);
+        //   • если sale_date отсутствует (агрегированная за период строка) — строка
+        //     попадает только когда её период ЦЕЛИКОМ лежит внутри выбранного:
+        //     ps <= period_start AND period_end <= pe.
+        // Это устраняет «продажи всегда за месяц»: агрегированная за месяц строка
+        // больше не подтягивается целиком при выборе более узкого под-периода.
         async function fetchCacheRows(table, ps, pe, dc) {
-            let path = `${table}?select=*`;
-            if (ps) path += `&period_start=lte.${pe}`;
-            if (pe) path += `&period_end=gte.${ps}`;
+            // Запрашиваем кандидатов: либо по sale_date в диапазоне, либо строки
+            // без sale_date, чей период целиком внутри выбранного.
+            const byDay = `and(sale_date.gte.${ps},sale_date.lte.${pe})`;
+            const byPeriod = `and(sale_date.is.null,period_start.gte.${ps},period_end.lte.${pe})`;
+            let path = `${table}?select=*&or=(${byDay},${byPeriod})`;
             if (dc) path += `&doctor_code=eq.${encodeURIComponent(dc)}`;
-            return sbSelect(path);
+            const rows = await sbSelect(path);
+            // Защитная строгая фильтрация на клиенте (на случай отличий бэкенда).
+            return (rows || []).filter(r => {
+                if (r.sale_date) return r.sale_date >= ps && r.sale_date <= pe;
+                return r.period_start >= ps && r.period_end <= pe;
+            });
         }
 
         async function loadSalesRecon() {
@@ -4060,28 +3670,21 @@
                         (lastSync.period_start ? ` (период ${lastSync.period_start} — ${lastSync.period_end}, ${lastSync.source || 'all'}, ${lastSync.status || ''})` : '');
                 }
 
-                let fallbackNote = '';
-                // Fallback: если за выбранный период пусто, но кэш вообще не пуст —
-                // показываем последнюю доступную синхронизацию вместо «нет данных».
+                // Строгая фильтрация: показываем ТОЛЬКО данные выбранного периода.
+                // Если за период данных нет — НЕ подменяем их последней синхронизацией
+                // (иначе период «не меняется»), а сообщаем об отсутствии данных и
+                // подсказываем последний доступный период для справки.
                 if ((!onec || onec.length === 0) && (!docsales || docsales.length === 0)) {
+                    let hint = '';
                     const anyOnec = await sbSelect('crm_onec_sales_cache?select=period_start,period_end&order=period_end.desc&limit=1');
                     if (anyOnec && anyOnec.length) {
                         const lp = anyOnec[0];
-                        [onec, docsales] = await Promise.all([
-                            fetchCacheRows('crm_onec_sales_cache', lp.period_start, lp.period_end, dc),
-                            fetchCacheRows('crm_docsales_sales_cache', lp.period_start, lp.period_end, dc)
-                        ]);
-                        fallbackNote = `⚠️ За выбранный период данных нет. Показана последняя доступная синхронизация: ${lp.period_start} — ${lp.period_end}.`;
+                        hint = ` Последний доступный период данных: ${lp.period_start} — ${lp.period_end}.`;
+                        if (info) info.textContent = (info.textContent ? info.textContent + ' — ' : '') +
+                            `За выбранный период ${ps} — ${pe} данных нет.${hint}`;
                     }
-                }
-
-                if ((!onec || onec.length === 0) && (!docsales || docsales.length === 0)) {
-                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;">Кэш продаж пуст. Дождитесь синхронизации или запустите её (scripts/sync-sales.js).</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:30px;">За выбранный период (${ps} — ${pe}) продаж нет.${hint ? ' ' + hint.trim() : ' Дождитесь синхронизации или запустите её (scripts/sync-sales.js).'}</td></tr>`;
                     return;
-                }
-
-                if (fallbackNote && info) {
-                    info.textContent = (info.textContent ? info.textContent + ' — ' : '') + fallbackNote;
                 }
 
                 const nameByCode = {};
