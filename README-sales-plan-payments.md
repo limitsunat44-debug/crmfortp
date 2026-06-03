@@ -87,12 +87,27 @@ Frontend **не содержит** и **не должен содержать** �
 
 ### DocSales
 
-- Источник: `https://docsales2.vercel.app/app.html`,
-  Supabase URL `https://mvjiqysmcclvceswfqwv.supabase.co`.
-- Таблицы: `diagnoses, doctors, patients, products, profiles, reports, salons,
-  visit_items, visit_photos, visits`.
-- Часть таблиц без auth/RLS пустая → нужен доступ с `service_role` целевого проекта
-  или RPC; результат складывать в `crm_docsales_sales_cache`.
+DocSales-данные приходят из **двух интерфейсов одного Supabase-проекта**
+(`https://mvjiqysmcclvceswfqwv.supabase.co`), и синк читает оба:
+
+1. **`docsales2.vercel.app/app.html`** — таблицы `visits` (+ `visit_items`, `doctors`).
+   Сумма по визиту берётся из `visit_items.amount` (fallback — `visits.total`),
+   агрегируется по врачу за период (`visit_date`, fallback `created_at`).
+2. **`docsales.vercel.app`** — таблица `doctor_sales`
+   (`id, store, doctor_name, product, quantity, price, total, sale_date`).
+   `amount = sum(total)`, `checks_count = count` записей за период (`sale_date`).
+   В `doctor_sales` **нет `doctor_code`**, поэтому код врача подтягивается из
+   CRM `crm_doctors` матчингом по нормализованному `doctor_name`. Если совпадения
+   нет — используется стабильный fallback `name:<normalized>`, а в `raw` пишется
+   `doctor_code_matched: false` и оригинальное имя (`doctor_sales_names`); в логах
+   выводится предупреждение.
+
+Результаты обоих источников **аддитивно объединяются** по `(doctor_code,
+period_start, period_end)` в один row `crm_docsales_sales_cache` (суммы и чеки
+складываются). В `raw.source_tables` перечислены источники строки
+(`visits` и/или `doctor_sales`). Полный список таблиц docsales2: `diagnoses,
+doctors, patients, products, profiles, reports, salons, visit_items,
+visit_photos, visits`. Доступ — с `service_role` DocSales-проекта.
 
 ### Переменные окружения для backend-синка (НЕ во frontend)
 
@@ -124,7 +139,7 @@ node scripts/sync-sales.js --start=2026-05-01 --end=2026-05-31 --source=1c
 node scripts/sync-sales.js --start=2026-05-01 --end=2026-05-31 --source=docsales
 ```
 
-Скрипт не требует runtime-зависимостей и работает на Node.js 18+. Он читает 1С OData постранично через `$top/$skip`, фильтрует период на стороне Node.js, записывает врачей в `crm_doctors`, продажи 1С в `crm_onec_sales_cache`, продажи DocSales в `crm_docsales_sales_cache`, а статус запуска в `crm_sync_runs`.
+Скрипт не требует runtime-зависимостей и работает на Node.js 18+. Он читает 1С OData постранично через `$top/$skip`, фильтрует период на стороне Node.js, записывает врачей в `crm_doctors`, продажи 1С в `crm_onec_sales_cache`. Для DocSales он читает **оба интерфейса** — `docsales2` (`visits`/`visit_items`) и `docsales.vercel.app` (`doctor_sales`) — и аддитивно объединяет их по `(doctor_code, period_start, period_end)` в `crm_docsales_sales_cache`. Статус запуска пишется в `crm_sync_runs`.
 
 Перед запуском создайте `.env` по шаблону `.env.example`. Секреты нельзя коммитить в GitHub и нельзя вставлять в `index.html`.
 

@@ -71,6 +71,17 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Нормализация имени врача для матчинга (регистр, пробелы, ё→е). */
+function normalizeName(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^a-zа-я0-9]+/gi, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 /** Дата-время начала/конца суток в формате OData edm.DateTime. */
 function odataPeriodBounds(start, end) {
   return {
@@ -265,14 +276,34 @@ function docsalesClient() {
 }
 
 /**
- * Гибкий адаптер DocSales: схема может отличаться, поэтому всё необязательное.
- * Пытаемся: visits(+visit_items) -> сумма; doctor_code из visits/doctors.
- * При несовпадении структуры — логируем и возвращаем пустой результат,
- * НЕ падаем.
+ * Загрузка справочника врачей CRM (doctor_code + doctor_name) для матчинга
+ * по нормализованному имени. Возвращает Map normalizedName -> doctor_code.
+ * Best-effort: при ошибке возвращает пустую Map и логирует предупреждение.
  */
-async function syncDocSales(crm, start, end) {
-  log('=== DocSales: старт ===');
-  const ds = docsalesClient();
+async function crmFetchDoctorsByName(crm) {
+  const byName = new Map();
+  try {
+    const docs = await crm.select('crm_doctors', { select: 'doctor_code,doctor_name' });
+    for (const d of docs || []) {
+      const key = normalizeName(d.doctor_name);
+      if (key && d.doctor_code != null && !byName.has(key)) {
+        byName.set(key, String(d.doctor_code));
+      }
+    }
+    log(`CRM: загружено врачей для матчинга по имени: ${byName.size}`);
+  } catch (e) {
+    warn(`CRM: не удалось загрузить crm_doctors для матчинга (${e.message}).`);
+  }
+  return byName;
+}
+
+/**
+ * Источник docsales2 (visits + visit_items + doctors).
+ * Возвращает Map doctor_code -> {name, amount, checks:Set, sources:Set}.
+ * При несовпадении схемы логирует и возвращает пустую Map, НЕ падает.
+ */
+async function aggregateDocSalesVisits(ds, start, end) {
+  const agg = new Map();
 
   let visits = [];
   try {
@@ -281,28 +312,25 @@ async function syncDocSales(crm, start, end) {
       filter: `visit_date=gte.${start}&visit_date=lte.${end}`,
     });
   } catch (e) {
-    // Возможно, поле даты называется иначе — пробуем без фильтра по дате.
-    warn(`DocSales: фильтр по visit_date не сработал (${e.message}), пробую created_at`);
+    warn(`DocSales(visits): фильтр по visit_date не сработал (${e.message}), пробую created_at`);
     try {
       visits = await ds.select('visits', {
         select: '*',
         filter: `created_at=gte.${start}T00:00:00&created_at=lte.${end}T23:59:59`,
       });
     } catch (e2) {
-      warn(`DocSales: не удалось прочитать visits (${e2.message}). Пропускаю источник.`);
-      log('=== DocSales: пропущено (нет совместимой схемы) ===');
-      return 0;
+      warn(`DocSales(visits): не удалось прочитать visits (${e2.message}). Пропускаю источник.`);
+      return agg;
     }
   }
 
   if (!Array.isArray(visits) || visits.length === 0) {
-    log('DocSales: визитов за период не найдено.');
-    log('=== DocSales: готово (0) ===');
-    return 0;
+    log('DocSales(visits): визитов за период не найдено.');
+    return agg;
   }
 
   // Справочник врачей DocSales (для кода/имени), если таблица есть.
-  let doctorsById = new Map();
+  const doctorsById = new Map();
   try {
     const docs = await ds.select('doctors', { select: '*' });
     for (const d of docs) {
@@ -313,7 +341,7 @@ async function syncDocSales(crm, start, end) {
       });
     }
   } catch (e) {
-    warn(`DocSales: таблица doctors недоступна (${e.message}), беру коды из visits.`);
+    warn(`DocSales(visits): таблица doctors недоступна (${e.message}), беру коды из visits.`);
   }
 
   // Позиции визитов (сумма) — если таблица visit_items есть.
@@ -325,11 +353,9 @@ async function syncDocSales(crm, start, end) {
       amountByVisit.set(vid, (amountByVisit.get(vid) || 0) + toNumber(it.amount));
     }
   } catch (e) {
-    warn(`DocSales: visit_items недоступна (${e.message}), беру сумму из visits.total.`);
+    warn(`DocSales(visits): visit_items недоступна (${e.message}), беру сумму из visits.total.`);
   }
 
-  // Агрегация по врачу.
-  const agg = new Map(); // doctor_code -> {name, amount, checks:Set}
   for (const v of visits) {
     const did = v.doctor_id != null ? String(v.doctor_id) : null;
     const dim = did ? doctorsById.get(did) : null;
@@ -348,13 +374,108 @@ async function syncDocSales(crm, start, end) {
 
     let a = agg.get(doctorCode);
     if (!a) {
-      a = { name: doctorName, amount: 0, checks: new Set() };
+      a = { name: doctorName, amount: 0, checks: new Set(), sources: new Set() };
       agg.set(doctorCode, a);
     }
     if (!a.name && doctorName) a.name = doctorName;
     a.amount += amount;
-    a.checks.add(String(v.id));
+    a.checks.add(`visit:${v.id}`);
+    a.sources.add('visits');
   }
+
+  log(`DocSales(visits): агрегировано врачей: ${agg.size}`);
+  return agg;
+}
+
+/**
+ * Источник docsales.vercel.app (таблица doctor_sales).
+ * Строки: { id, store, doctor_name, product, quantity, price, total, sale_date }.
+ * doctor_code отсутствует → матчим по нормализованному doctor_name из crm_doctors.
+ * Если совпадения нет — fallback `name:<normalized>`, raw содержит original имя.
+ * Возвращает Map doctor_code -> {name, amount, checks:Set, sources:Set, unmatched:Set}.
+ */
+async function aggregateDoctorSales(ds, crmDoctorsByName, start, end) {
+  const agg = new Map();
+
+  let rows = [];
+  try {
+    rows = await ds.select('doctor_sales', {
+      select: '*',
+      filter: `sale_date=gte.${start}&sale_date=lte.${end}`,
+    });
+  } catch (e) {
+    warn(`DocSales(doctor_sales): таблица недоступна или фильтр не сработал (${e.message}). Пропускаю источник.`);
+    return agg;
+  }
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    log('DocSales(doctor_sales): продаж за период не найдено.');
+    return agg;
+  }
+
+  for (const r of rows) {
+    const rawName = r.doctor_name != null ? String(r.doctor_name).trim() : '';
+    const normName = normalizeName(rawName);
+    const matchedCode = normName ? crmDoctorsByName.get(normName) : null;
+    const doctorCode = matchedCode || (normName ? `name:${normName}` : 'unknown');
+
+    let a = agg.get(doctorCode);
+    if (!a) {
+      a = { name: rawName || null, amount: 0, checks: new Set(), sources: new Set(), unmatched: new Set() };
+      agg.set(doctorCode, a);
+    }
+    if (!a.name && rawName) a.name = rawName;
+    a.amount += toNumber(r.total);
+    // Чек = запись продажи; если есть id — distinct по id, иначе по строке.
+    a.checks.add(`doctor_sales:${r.id != null ? r.id : `${rawName}|${r.product}|${r.sale_date}`}`);
+    a.sources.add('doctor_sales');
+    if (!matchedCode && rawName) a.unmatched.add(rawName);
+  }
+
+  let unmatchedCount = 0;
+  for (const a of agg.values()) if (a.unmatched && a.unmatched.size) unmatchedCount += 1;
+  if (unmatchedCount) {
+    warn(`DocSales(doctor_sales): врачей без совпадения в crm_doctors: ${unmatchedCount} (использован fallback name:<normalized>).`);
+  }
+  log(`DocSales(doctor_sales): агрегировано врачей: ${agg.size}`);
+  return agg;
+}
+
+/** Слияние агрегатов нескольких источников DocSales аддитивно по doctor_code. */
+function mergeDocSalesAggregates(...maps) {
+  const merged = new Map();
+  for (const m of maps) {
+    for (const [code, a] of m.entries()) {
+      let t = merged.get(code);
+      if (!t) {
+        t = { name: a.name, amount: 0, checks: new Set(), sources: new Set(), unmatched: new Set() };
+        merged.set(code, t);
+      }
+      if (!t.name && a.name) t.name = a.name;
+      t.amount += a.amount;
+      for (const c of a.checks) t.checks.add(c);
+      for (const s of a.sources) t.sources.add(s);
+      if (a.unmatched) for (const u of a.unmatched) t.unmatched.add(u);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Адаптер DocSales: читает оба интерфейса —
+ *   docsales2 (visits/visit_items) и docsales.vercel.app (doctor_sales).
+ * Аддитивно объединяет суммы и чеки по doctor_code/period в один кэш-row.
+ * При несовпадении любой схемы — логирует и продолжает с тем, что доступно.
+ */
+async function syncDocSales(crm, start, end) {
+  log('=== DocSales: старт ===');
+  const ds = docsalesClient();
+
+  const crmDoctorsByName = await crmFetchDoctorsByName(crm);
+
+  const visitsAgg = await aggregateDocSalesVisits(ds, start, end);
+  const doctorSalesAgg = await aggregateDoctorSales(ds, crmDoctorsByName, start, end);
+  const agg = mergeDocSalesAggregates(visitsAgg, doctorSalesAgg);
 
   const rows = [...agg.entries()].map(([code, a]) => ({
     doctor_code: code,
@@ -365,6 +486,10 @@ async function syncDocSales(crm, start, end) {
     checks_count: a.checks.size,
     raw: {
       source: 'docsales',
+      source_tables: [...a.sources],
+      ...(a.unmatched && a.unmatched.size
+        ? { doctor_code_matched: false, doctor_sales_names: [...a.unmatched] }
+        : {}),
     },
     synced_at: new Date().toISOString(),
   }));
@@ -372,7 +497,7 @@ async function syncDocSales(crm, start, end) {
   if (rows.length) {
     await crm.upsert('crm_docsales_sales_cache', rows, 'doctor_code,period_start,period_end');
   }
-  log(`=== DocSales: готово (врачей ${rows.length}) ===`);
+  log(`=== DocSales: готово (врачей ${rows.length}, источники visits + doctor_sales) ===`);
   return rows.length;
 }
 
