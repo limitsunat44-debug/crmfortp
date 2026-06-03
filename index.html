@@ -3410,13 +3410,34 @@
 
             await saveData();
 
-            // Интеграция с планом и баллами — только для новых визитов
+            // Интеграция с планом, выплатами и баллами — только для новых визитов
             if (isNewVisit) {
                 // Дата визита берётся из выбранного времени визита (если задано),
                 // иначе — сегодня. По ней ищем плановый пункт того же дня.
                 const planDate = visitData.visitTime
                     ? ymd(new Date(visitData.visitTime))
                     : ymd(new Date());
+
+                // ИСТОЧНИК ИСТИНЫ для уменьшения долга — та же таблица/логика, что и
+                // вкладка «Выплаты». Пишем выплату до плана, чтобы долг врача менялся
+                // ровно так же, как при вводе выплаты из вкладки «Выплаты».
+                let paymentRecorded = false;
+                if (amount > 0) {
+                    try {
+                        paymentRecorded = await recordDoctorPaymentFromVisit({
+                            doctor_code: visitData.doctorId,
+                            doctor_name: visitData.doctorName,
+                            rep_login: targetLogin,
+                            amount,
+                            payment_date: planDate,
+                            comment: visitData.comment
+                        });
+                    } catch (err) {
+                        console.error('recordDoctorPaymentFromVisit:', err);
+                        showNotification('⚠️ Визит сохранён, но выплату записать не удалось: ' + err.message, 'error');
+                    }
+                }
+
                 const matched = await tryFulfillPlanForVisit(targetLogin, {
                     doctorCode: visitData.doctorId,
                     doctorName: visitData.doctorName,
@@ -3426,10 +3447,25 @@
                     planDate
                 });
                 await awardVisitPoint(targetLogin, visitData.id);
+
                 if (matched) {
                     showNotification('📋 Плановый визит засчитан как выполненный', 'success');
                 } else {
                     showNotification('ℹ️ Планового пункта на эту дату не найдено — выплата внеплановая', 'success');
+                }
+                if (paymentRecorded) {
+                    showNotification('💳 Выплата врачу записана — долг обновлён', 'success');
+                    // Обновляем зависимые вкладки, если они открыты (видимы).
+                    const isVisible = (id) => {
+                        const el = document.getElementById(id);
+                        return el && el.style.display !== 'none';
+                    };
+                    try {
+                        if (typeof loadPayments === 'function' && isVisible('paymentsSection')) loadPayments();
+                    } catch (_) {}
+                    try {
+                        if (typeof loadPlan === 'function' && isVisible('planSection')) loadPlan();
+                    } catch (_) {}
                 }
             }
 
@@ -3986,6 +4022,24 @@
         }
         function hidePaymentForm() { document.getElementById('paymentModal').classList.remove('active'); }
 
+        // Единая точка записи выплаты врачу в crm_doctor_payments — ту же таблицу,
+        // что читает вкладка «Выплаты» при расчёте долга. Используется и формой
+        // выплат, и сохранением визита, чтобы долг врача менялся одинаково.
+        async function createDoctorPayment(p) {
+            const body = {
+                doctor_code: p.doctor_code,
+                doctor_name: p.doctor_name || null,
+                rep_login: p.rep_login || activeRepLogin(),
+                amount: Number(p.amount) || 0,
+                payment_date: p.payment_date || ymd(new Date()),
+                period_start: p.period_start || null,
+                period_end: p.period_end || null,
+                comment: p.comment || null,
+                created_by: currentUser.login
+            };
+            return sbInsert('crm_doctor_payments', body);
+        }
+
         async function savePayment() {
             const doctor_code = document.getElementById('payFormDoctorCode').value.trim();
             const amount = parseFloat(document.getElementById('payFormAmount').value);
@@ -3994,25 +4048,59 @@
                 showNotification('❌ Заполните код врача, сумму и дату', 'error');
                 return;
             }
-            const body = {
-                doctor_code,
-                doctor_name: document.getElementById('payFormDoctorName').value.trim() || null,
-                rep_login: activeRepLogin(),
-                amount,
-                payment_date,
-                period_start: document.getElementById('payFormPeriodStart').value || null,
-                period_end: document.getElementById('payFormPeriodEnd').value || null,
-                comment: document.getElementById('payFormComment').value.trim() || null,
-                created_by: currentUser.login
-            };
             try {
-                await sbInsert('crm_doctor_payments', body);
+                await createDoctorPayment({
+                    doctor_code,
+                    doctor_name: document.getElementById('payFormDoctorName').value.trim() || null,
+                    rep_login: activeRepLogin(),
+                    amount,
+                    payment_date,
+                    period_start: document.getElementById('payFormPeriodStart').value || null,
+                    period_end: document.getElementById('payFormPeriodEnd').value || null,
+                    comment: document.getElementById('payFormComment').value.trim() || null
+                });
                 hidePaymentForm();
                 showNotification('✅ Выплата создана', 'success');
                 loadPayments();
             } catch (err) {
                 showNotification('❌ Ошибка: ' + err.message, 'error');
             }
+        }
+
+        // Записывает выплату врачу из визита, используя ту же логику, что и вкладка
+        // «Выплаты». Канонизирует код врача по имени/коду (как сверка), чтобы долг
+        // уменьшался у того же врача. Идемпотентна на стороне фронтенда: не
+        // создаёт дубликат, если выплата с тем же врачом/датой/суммой/ТП уже есть
+        // (в crm_doctor_payments нет visit_id, поэтому сверяемся по полям).
+        async function recordDoctorPaymentFromVisit(opts) {
+            const amount = Number(opts.amount) || 0;
+            if (amount <= 0) return false;
+            const repLogin = opts.rep_login || activeRepLogin();
+            const paymentDate = opts.payment_date || ymd(new Date());
+
+            // Канонический код врача — тот же резолвер, что использует план/сверка.
+            const resolve = buildDoctorCodeResolver(crmDoctors);
+            const canonCode = String(resolve(opts.doctor_code, opts.doctor_name));
+
+            try {
+                // Идемпотентность: ищем недавнюю выплату с теми же ключевыми полями.
+                const existing = await sbSelect(
+                    `crm_doctor_payments?doctor_code=eq.${encodeURIComponent(canonCode)}`
+                    + `&rep_login=eq.${encodeURIComponent(repLogin)}`
+                    + `&payment_date=eq.${encodeURIComponent(paymentDate)}`
+                    + `&amount=eq.${encodeURIComponent(amount)}&limit=1`);
+                if (existing && existing.length > 0) return true;
+            } catch (_) { /* проверка best-effort — при ошибке всё равно пишем */ }
+
+            await createDoctorPayment({
+                doctor_code: canonCode,
+                doctor_name: opts.doctor_name || null,
+                rep_login: repLogin,
+                amount,
+                payment_date: paymentDate,
+                comment: opts.comment || null
+            });
+            return true;
         }
 
         // ============================================================
