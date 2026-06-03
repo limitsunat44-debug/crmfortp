@@ -1,0 +1,61 @@
+name: Sync doctor sales
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "Start date YYYY-MM-DD"
+        required: true
+      end:
+        description: "End date YYYY-MM-DD"
+        required: true
+      source:
+        description: "Source: 1c, docsales, or all"
+        required: true
+        default: "1c"
+  schedule:
+    - cron: "15 23 * * *"
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Compute scheduled period
+        id: period
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "start=${{ inputs.start }}" >> "$GITHUB_OUTPUT"
+            echo "end=${{ inputs.end }}" >> "$GITHUB_OUTPUT"
+            echo "source=${{ inputs.source }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "start=$(date -u +%Y-%m-01)" >> "$GITHUB_OUTPUT"
+            echo "end=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+            echo "source=1c" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check sync script
+        run: npm run check
+
+      - name: Run sync
+        env:
+          ONEC_ODATA_URL: ${{ secrets.ONEC_ODATA_URL }}
+          ONEC_BASIC_USER: ${{ secrets.ONEC_BASIC_USER }}
+          ONEC_BASIC_PASSWORD: ${{ secrets.ONEC_BASIC_PASSWORD }}
+          DOCSALES_SUPABASE_URL: ${{ secrets.DOCSALES_SUPABASE_URL }}
+          DOCSALES_SERVICE_ROLE_KEY: ${{ secrets.DOCSALES_SERVICE_ROLE_KEY }}
+          CRM_SUPABASE_URL: ${{ secrets.CRM_SUPABASE_URL }}
+          CRM_SERVICE_ROLE_KEY: ${{ secrets.CRM_SERVICE_ROLE_KEY }}
+        run: |
+          node scripts/sync-sales.js \
+            --start="${{ steps.period.outputs.start }}" \
+            --end="${{ steps.period.outputs.end }}" \
+            --source="${{ steps.period.outputs.source }}"
