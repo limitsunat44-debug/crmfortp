@@ -544,6 +544,57 @@ async function aggregateDoctorSales(ds, crmIndex, start, end) {
   return agg;
 }
 
+/**
+ * Канонизация агрегатов DocSales по ИМЕНИ врача относительно crm_doctors.
+ *
+ * Проблема: DocSales-источники дают РАЗНЫЕ коды одного врача — числовой код
+ * визитов/doctor_sales (например 673), fallback `name:<norm>` или код из
+ * таблицы doctors DocSales. 1С при этом пишет стабильный CRM doctor_code
+ * (например 510). Если не привести их к одному коду, во фронте получаются дубли.
+ *
+ * Правило (для ВСЕХ агрегатов, независимо от источника кода):
+ *   • нормализуем doctor_name и ищем врача в crm_doctors (точно, затем нечётко
+ *     в пределах консервативного порога Левенштейна);
+ *   • если найден — ПЕРЕКЛЮЧАЕМ код агрегата на CRM doctor_code (даже если у
+ *     строки уже есть числовой код); строки с тем же CRM-кодом×день сливаются;
+ *   • если имя не совпало ни с кем — код НЕ трогаем (оставляем как есть, чтобы
+ *     не склеить разных людей).
+ *
+ * Возвращает новый Map `${code}|${day}` -> aggregate с каноническими кодами.
+ */
+function canonicalizeDocSalesAggregates(merged, crmIndex) {
+  if (!crmIndex || !crmIndex.list || crmIndex.list.length === 0) return merged;
+  const out = new Map();
+  let remapped = 0;
+  for (const a of merged.values()) {
+    const normName = normalizeName(a.name);
+    const match = normName ? fuzzyMatchDoctor(normName, crmIndex) : null;
+    let code = a.code;
+    if (match && match.code && String(match.code) !== String(a.code)) {
+      remapped += 1;
+      log(
+        `DocSales(canon): "${a.name}" код ${a.code} → CRM ${match.code}` +
+          (match.fuzzy ? ` (нечётко dist=${match.distance})` : ' (точно)')
+      );
+      code = String(match.code);
+    }
+    const key = `${code}|${a.day}`;
+    let t = out.get(key);
+    if (!t) {
+      t = { code, day: a.day, name: a.name, amount: 0, checks: new Set(), sources: new Set(), unmatched: new Set() };
+      out.set(key, t);
+    }
+    if (!t.name && a.name) t.name = a.name;
+    t.amount += a.amount;
+    for (const c of a.checks) t.checks.add(c);
+    for (const s of a.sources) t.sources.add(s);
+    // Если имя совпало с CRM — это больше НЕ unmatched.
+    if (!match && a.unmatched) for (const u of a.unmatched) t.unmatched.add(u);
+  }
+  if (remapped) log(`DocSales(canon): перекодировано агрегатов по имени к CRM-коду: ${remapped}.`);
+  return out;
+}
+
 /** Слияние агрегатов нескольких источников DocSales аддитивно по doctor_code×день. */
 function mergeDocSalesAggregates(...maps) {
   const merged = new Map(); // `${code}|${day}` -> {code, day, ...}
@@ -578,7 +629,11 @@ async function syncDocSales(crm, start, end) {
 
   const visitsAgg = await aggregateDocSalesVisits(ds, start, end);
   const doctorSalesAgg = await aggregateDoctorSales(ds, crmIndex, start, end);
-  const agg = mergeDocSalesAggregates(visitsAgg, doctorSalesAgg);
+  // Сначала аддитивно сливаем источники, затем канонизируем коды по ИМЕНИ
+  // относительно crm_doctors — это приводит числовые/fallback-коды DocSales
+  // к стабильному CRM doctor_code (например 673 → 510) и устраняет дубли.
+  const merged = mergeDocSalesAggregates(visitsAgg, doctorSalesAgg);
+  const agg = canonicalizeDocSalesAggregates(merged, crmIndex);
 
   // Одна строка на врача×день (period_start=period_end=sale_date=day),
   // чтобы фронт мог суммировать произвольный диапазон дат.
