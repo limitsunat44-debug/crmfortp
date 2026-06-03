@@ -30,20 +30,26 @@
             --color-orange-400: rgba(230, 129, 97, 1);
             --color-orange-500: rgba(168, 75, 47, 1);
 
-            /* Custom application colors */
-            --primary-color: #2196F3;
-            --success-color: #4CAF50;
-            --error-color: #F44336;
-            --background-color: #F5F5F5;
-            --text-color: #212121;
+            /* Custom application colors — medical app palette (teal/green) */
+            --primary-color: #1A9C8E;          /* teal/green accent */
+            --primary-dark: #157D72;
+            --primary-light: #E6F5F2;
+            --success-color: #16A34A;
+            --error-color: #EF4444;
+            --warning-color: #F59E0B;
+            --background-color: #F4F7F8;        /* light gray-white */
+            --surface-2: #EEF3F4;
+            --text-color: #1F2A2E;
+            --text-muted: #6B7B80;
             --card-bg: #FFFFFF;
-            --border-color: #E0E0E0;
+            --border-color: #E6ECEE;
 
             /* Dashboard gradient colors */
-            --gradient-orange: linear-gradient(135deg, #FF9A56 0%, #FF6B6B 100%);
-            --gradient-purple: linear-gradient(135deg, #A855F7 0%, #6366F1 100%);
-            --gradient-pink: linear-gradient(135deg, #EC4899 0%, #A855F7 100%);
-            --gradient-teal: linear-gradient(135deg, #14B8A6 0%, #10B981 100%);
+            --gradient-orange: linear-gradient(135deg, #FFB36B 0%, #FF7E6B 100%);
+            --gradient-purple: linear-gradient(135deg, #A78BFA 0%, #6366F1 100%);
+            --gradient-pink: linear-gradient(135deg, #F472B6 0%, #A855F7 100%);
+            --gradient-teal: linear-gradient(135deg, #2DD4BF 0%, #14B8A6 100%);
+            --gradient-primary: linear-gradient(135deg, #1FB6A6 0%, #14998C 100%);
 
             /* Spacing */
             --space-4: 4px;
@@ -64,15 +70,17 @@
             --font-size-3xl: 24px;
             --font-size-4xl: 32px;
 
-            /* Border Radius */
-            --radius-sm: 4px;
-            --radius-base: 8px;
-            --radius-lg: 12px;
-            --radius-xl: 16px;
+            /* Border Radius — large rounded look */
+            --radius-sm: 8px;
+            --radius-base: 12px;
+            --radius-lg: 18px;
+            --radius-xl: 24px;
+            --radius-pill: 999px;
 
-            /* Shadows */
-            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+            /* Shadows — soft */
+            --shadow-sm: 0 2px 8px rgba(31, 42, 46, 0.05);
+            --shadow-md: 0 8px 24px rgba(31, 42, 46, 0.08);
+            --shadow-lg: 0 16px 40px rgba(31, 42, 46, 0.12);
         }
 
         * {
@@ -104,10 +112,11 @@
         }
 
         .header {
-            background: var(--primary-color);
-            color: white;
-            padding: var(--space-16);
-            box-shadow: var(--shadow-md);
+            background: var(--card-bg);
+            color: var(--text-color);
+            padding: var(--space-12) var(--space-16);
+            box-shadow: var(--shadow-sm);
+            border-bottom: 1px solid var(--border-color);
             position: sticky;
             top: 0;
             z-index: 100;
@@ -117,23 +126,60 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: var(--space-12);
             max-width: 1200px;
             margin: 0 auto;
+            flex-wrap: wrap;
         }
 
         .header h1 {
             font-size: var(--font-size-xl);
-            font-weight: 600;
+            font-weight: 700;
+            color: var(--primary-color);
+            white-space: nowrap;
         }
 
         .header-actions {
             display: flex;
-            gap: var(--space-12);
+            gap: var(--space-8);
             align-items: center;
+            flex-wrap: wrap;
         }
 
         .user-info {
             font-size: var(--font-size-sm);
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Навигация-вкладки (десктоп: чипы в шапке) */
+        .nav-tabs {
+            display: flex;
+            gap: var(--space-8);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .nav-tab {
+            background: var(--surface-2);
+            color: var(--text-color);
+            border: none;
+            padding: var(--space-8) var(--space-16);
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            min-height: 40px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.18s;
+            white-space: nowrap;
+        }
+        .nav-tab:hover { background: var(--primary-light); color: var(--primary-dark); }
+        .nav-tab.nav-active {
+            background: var(--gradient-primary);
+            color: #fff;
+            box-shadow: var(--shadow-sm);
         }
 
         /* Dashboard Styles */
@@ -150,12 +196,14 @@
             padding: var(--space-24);
             position: relative;
             overflow: hidden;
-            box-shadow: var(--shadow-md);
-            transition: transform 0.2s;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
 
         .dashboard-card:hover {
             transform: translateY(-4px);
+            box-shadow: var(--shadow-md);
         }
 
         .dashboard-card::before {
@@ -164,7 +212,7 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 5px;
         }
 
         .dashboard-card.orange::before {
@@ -285,14 +333,14 @@
         }
 
         .btn {
-            background: var(--primary-color);
+            background: var(--gradient-primary);
             color: white;
             border: none;
             padding: var(--space-12) var(--space-20);
-            border-radius: var(--radius-base);
+            border-radius: var(--radius-pill);
             cursor: pointer;
             font-size: var(--font-size-base);
-            font-weight: 500;
+            font-weight: 600;
             transition: all 0.2s;
             text-decoration: none;
             display: inline-flex;
@@ -317,12 +365,16 @@
             border: 1px solid var(--border-color);
         }
 
+        .btn-primary {
+            background: var(--gradient-primary);
+        }
+
         .btn-success {
-            background: var(--success-color);
+            background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
         }
 
         .btn-error {
-            background: var(--error-color);
+            background: linear-gradient(135deg, #F87171 0%, #EF4444 100%);
         }
 
         .btn-sm {
@@ -331,17 +383,129 @@
             min-height: 36px;
         }
 
-        /* Активная вкладка в верхней навигации */
-        .btn.nav-active {
-            box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px var(--primary-color);
-            font-weight: 700;
-            opacity: 1;
+        /* ===== Chips (категории / статусы / специальности) ===== */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: var(--radius-pill);
+            font-size: var(--font-size-sm);
+            font-weight: 600;
+            background: var(--surface-2);
+            color: var(--text-muted);
+            border: none;
+            cursor: default;
         }
-        .btn-secondary.nav-active {
-            background: var(--primary-color);
+        .chip.clickable { cursor: pointer; transition: all 0.18s; }
+        .chip.clickable:hover { background: var(--primary-light); color: var(--primary-dark); }
+        .chip.active { background: var(--gradient-primary); color: #fff; }
+        .chip.success { background: rgba(22,163,74,0.12); color: var(--success-color); }
+        .chip.warn { background: rgba(245,158,11,0.15); color: var(--warning-color); }
+        .chip.error { background: rgba(239,68,68,0.12); color: var(--error-color); }
+        .chip.teal { background: var(--primary-light); color: var(--primary-dark); }
+
+        .chip-row {
+            display: flex;
+            gap: var(--space-8);
+            flex-wrap: wrap;
+            margin-bottom: var(--space-16);
+        }
+
+        /* ===== Rounded search ===== */
+        .search-pill {
+            display: flex;
+            align-items: center;
+            gap: var(--space-8);
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-pill);
+            padding: 4px 8px 4px 16px;
+            box-shadow: var(--shadow-sm);
+        }
+        .search-pill input {
+            border: none;
+            outline: none;
+            background: transparent;
+            flex: 1;
+            min-height: 40px;
+            font-size: var(--font-size-base);
+            color: var(--text-color);
+        }
+
+        /* ===== Doctor cards (грид карточек врачей) ===== */
+        .doctor-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--space-16);
+        }
+        .doctor-card-item {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: var(--space-20);
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            transition: transform 0.18s, box-shadow 0.18s;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-12);
+        }
+        .doctor-card-item:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+        .doctor-card-top { display: flex; align-items: center; gap: var(--space-12); }
+        .doctor-avatar {
+            width: 52px; height: 52px;
+            border-radius: var(--radius-pill);
+            background: var(--gradient-primary);
             color: #fff;
-            border-color: var(--primary-color);
+            display: flex; align-items: center; justify-content: center;
+            font-size: var(--font-size-xl); font-weight: 700;
+            flex-shrink: 0;
         }
+        .doctor-card-name { font-weight: 700; font-size: var(--font-size-lg); color: var(--text-color); }
+        .doctor-card-meta { font-size: var(--font-size-sm); color: var(--text-muted); }
+        .doctor-card-desc {
+            font-size: var(--font-size-sm); color: var(--text-muted);
+            line-height: 1.5;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .doctor-card-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: var(--space-8);
+            border-top: 1px solid var(--border-color);
+            padding-top: var(--space-12);
+        }
+        .rating-stars { color: #F5B400; font-size: var(--font-size-base); letter-spacing: 1px; }
+        .rating-label { font-size: 11px; color: var(--text-muted); }
+
+        /* ===== Star rating input ===== */
+        .star-input { display: inline-flex; gap: 4px; font-size: 26px; cursor: pointer; }
+        .star-input .star { color: #D7DEE0; transition: color 0.1s; }
+        .star-input .star.on { color: #F5B400; }
+
+        /* ===== Bottom mobile nav ===== */
+        .bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--card-bg);
+            border-top: 1px solid var(--border-color);
+            box-shadow: 0 -4px 20px rgba(31,42,46,0.08);
+            z-index: 200;
+            padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+            overflow-x: auto;
+        }
+        .bottom-nav-inner { display: flex; justify-content: space-around; min-width: 100%; gap: 2px; }
+        .bottom-nav-btn {
+            background: none; border: none; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            padding: 6px 10px; border-radius: var(--radius-base);
+            color: var(--text-muted); font-size: 10px; font-weight: 600;
+            min-width: 56px; white-space: nowrap;
+        }
+        .bottom-nav-btn .bn-icon { font-size: 20px; line-height: 1; }
+        .bottom-nav-btn.nav-active { color: var(--primary-color); }
 
         .btn-full {
             width: 100%;
@@ -383,8 +547,9 @@
         .card-header {
             padding: var(--space-20);
             border-bottom: 1px solid var(--border-color);
-            background: #FAFAFA;
+            background: var(--card-bg);
         }
+        .card-header h3 { color: var(--text-color); font-weight: 700; }
 
         .card-body {
             padding: var(--space-20);
@@ -417,7 +582,7 @@
         .form-control:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+            box-shadow: 0 0 0 3px rgba(26, 156, 142, 0.15);
         }
 
         .login-container {
@@ -871,21 +1036,28 @@
         }
 
         /* Responsive Design */
+        @media (max-width: 900px) {
+            /* На мобильном верхние вкладки прячем — навигация снизу */
+            .nav-tabs { display: none !important; }
+            .bottom-nav { display: block; }
+            body.app-authed { padding-bottom: 76px; }
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: var(--space-8);
             }
 
             .header-content {
-                flex-direction: column;
-                gap: var(--space-12);
-                align-items: stretch;
+                gap: var(--space-8);
+                align-items: center;
             }
 
             .header-actions {
-                justify-content: space-between;
-                flex-wrap: wrap;
+                margin-left: auto;
+                flex-wrap: nowrap;
             }
+            .user-info { display: none; }
 
             .toolbar {
                 flex-direction: column;
@@ -958,20 +1130,55 @@
         }
 
         .table th {
-            background-color: #f8f9fa;
+            background-color: var(--surface-2);
             padding: 12px;
             text-align: left;
-            font-weight: 600;
-            border-bottom: 2px solid #dee2e6;
+            font-weight: 700;
+            font-size: var(--font-size-sm);
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
         }
 
         .table td {
             padding: 12px;
-            border-bottom: 1px solid #dee2e6;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .table tbody tr:hover {
-            background-color: #f8f9fa;
+            background-color: var(--primary-light);
+        }
+
+        /* Card/table hybrid: на узких экранах таблицы превращаются в карточки */
+        @media (max-width: 640px) {
+            table.table thead { display: none; }
+            table.table, table.table tbody, table.table tr, table.table td { display: block; width: 100%; }
+            table.table tr {
+                background: var(--card-bg);
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius-base);
+                margin-bottom: var(--space-12);
+                padding: var(--space-8);
+                box-shadow: var(--shadow-sm);
+            }
+            table.table td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: var(--space-12);
+                border-bottom: 1px solid var(--border-color);
+                padding: 8px 6px;
+                text-align: right;
+            }
+            table.table tr td:last-child { border-bottom: none; }
+            table.table td::before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: var(--text-muted);
+                font-size: var(--font-size-sm);
+                text-align: left;
+            }
+            table.table td[colspan] { justify-content: center; }
+            table.table td[colspan]::before { content: ''; }
         }
 
         .btn-danger {
@@ -1018,34 +1225,21 @@
     <div id="dashboardPage" class="page">
         <header class="header">
             <div class="header-content">
-                <h1>📊 CRM Система</h1>
+                <h1>🩺 MedCRM</h1>
+                <div class="nav-tabs" id="topNavTabs">
+                    <button class="nav-tab" id="dashboardNavBtn" onclick="showDashboard()" style="display: none;">📊 Главная</button>
+                    <button class="nav-tab" id="doctorsBtn" onclick="showDoctorsSection()" style="display: none;">🧑‍⚕️ Врачи</button>
+                    <button class="nav-tab" id="doctorSalesBtn" onclick="showDoctorSalesSection()" style="display: none;">📈 Продажи врачей</button>
+                    <button class="nav-tab" id="manageRepsBtn" onclick="showManageRepsSection()" style="display: none;">👥 Сотрудники</button>
+                    <button class="nav-tab" id="salesReconBtn" onclick="showSalesReconSection()" style="display: none;">💵 Продажи</button>
+                    <button class="nav-tab" id="paymentsBtn" onclick="showPaymentsSection()" style="display: none;">💳 Выплаты</button>
+                    <button class="nav-tab" id="planBtn" onclick="showPlanSection()" style="display: none;">🗓 План</button>
+                    <button class="nav-tab" id="profileBtn" onclick="showProfileSection()" style="display: none;">🧑‍💼 Профиль</button>
+                    <button class="nav-tab" id="adminStatsBtn" onclick="showAdminStatsSection()" style="display: none;">📊 Статистика</button>
+                </div>
                 <div class="header-actions">
                     <span class="user-info" id="userInfo"></span>
-                    <button class="btn btn-sm btn-secondary" onclick="refreshData()">🔄 Обновить</button>
-                    <button class="btn btn-sm btn-primary" id="dashboardNavBtn" onclick="showDashboard()" style="display: none;">
-                        📊 Dashboard
-                    </button>
-                    <button class="btn btn-sm btn-primary" id="doctorSalesBtn" onclick="showDoctorSalesSection()" style="display: none;">
-                        📊 Продажи врачей
-                    </button>
-                    <button class="btn btn-sm btn-primary" id="manageRepsBtn" onclick="showManageRepsSection()" style="display: none;">
-                        👥 Сотрудники
-                    </button>
-                    <button class="btn btn-sm btn-primary" id="salesReconBtn" onclick="showSalesReconSection()" style="display: none;">
-                        💵 Продажи
-                    </button>
-                    <button class="btn btn-sm btn-primary" id="paymentsBtn" onclick="showPaymentsSection()" style="display: none;">
-                        💳 Выплаты
-                    </button>
-                    <button class="btn btn-sm btn-primary" id="planBtn" onclick="showPlanSection()" style="display: none;">
-                        🗓 План
-                    </button>
-                    <button class="btn btn-sm btn-primary" id="profileBtn" onclick="showProfileSection()" style="display: none;">
-                        🧑‍💼 Профиль
-                    </button>
-                    <button class="btn btn-sm btn-primary" id="adminStatsBtn" onclick="showAdminStatsSection()" style="display: none;">
-                        📈 Статистика
-                    </button>
+                    <button class="btn btn-sm btn-secondary" onclick="refreshData()">🔄</button>
                     <button class="btn btn-sm btn-secondary" onclick="logout()">Выход</button>
                 </div>
             </div>
@@ -1131,6 +1325,28 @@
                             </table>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- ===== Вкладка: ВРАЧИ ===== -->
+            <div id="doctorsSection" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">🧑‍⚕️ Справочник врачей</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="showSpecialtiesModal()">🏷 Специальности</button>
+                        <button class="btn btn-success" onclick="showDoctorProfileModal()">➕ Добавить врача</button>
+                    </div>
+                </div>
+
+                <div class="search-pill" style="margin-bottom: var(--space-16);">
+                    <span>🔍</span>
+                    <input type="text" id="doctorsSearchInput" placeholder="Поиск по имени, коду, месту работы..." oninput="renderDoctorsList()">
+                </div>
+
+                <div class="chip-row" id="doctorsSpecialtyChips"></div>
+
+                <div id="doctorsListContainer" class="doctor-grid">
+                    <div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">🧑‍⚕️</div><h3>Загрузка врачей...</h3></div>
                 </div>
             </div>
 
@@ -1342,7 +1558,13 @@
                             <button class="btn btn-primary" onclick="loadSalesRecon()">🔍 Показать</button>
                         </div>
                     </div>
-                    <p style="margin-top:10px;font-size:12px;color:var(--color-gray-400);">
+                    <div class="chip-row" style="margin-top:14px;margin-bottom:0;">
+                        <span class="chip clickable" onclick="setReconQuickPeriod('may2026')">📅 Май 2026</span>
+                        <span class="chip clickable" onclick="setReconQuickPeriod('thisMonth')">Текущий месяц</span>
+                        <span class="chip clickable" onclick="setReconQuickPeriod('lastMonth')">Прошлый месяц</span>
+                        <span class="chip clickable" onclick="setReconQuickPeriod('lastSync')">Последняя синхронизация</span>
+                    </div>
+                    <p style="margin-top:10px;font-size:12px;color:var(--text-muted);">
                         Разница &gt; 10% подсвечивается. Итого = продажи&nbsp;1С × 10% + чеки&nbsp;1С × 10.
                     </p>
                     <p id="reconSyncInfo" style="margin-top:6px;font-size:12px;color:var(--color-gray-400);"></p>
@@ -1782,6 +2004,106 @@
         </div>
     </div>
 
+    <!-- Модальное окно: расширенный профиль врача (создание / редактирование) -->
+    <div id="doctorProfileModal" class="modal">
+        <div class="modal-content" style="max-width: 560px;">
+            <div class="modal-header">
+                <h2 id="doctorProfileTitle">Профиль врача</h2>
+                <button class="close-btn" onclick="hideDoctorProfileModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="doctorProfileForm" onsubmit="return false;">
+                    <input type="hidden" id="dpDoctorId">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-12);">
+                        <div class="form-group" style="margin-bottom:var(--space-12);">
+                            <label class="form-label">Имя врача *</label>
+                            <input type="text" class="form-control" id="dpName" placeholder="Фамилия И.О.">
+                        </div>
+                        <div class="form-group" style="margin-bottom:var(--space-12);">
+                            <label class="form-label">Код врача *</label>
+                            <input type="text" class="form-control" id="dpCode" placeholder="Уникальный код">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-12);">
+                        <div class="form-group" style="margin-bottom:var(--space-12);">
+                            <label class="form-label">Специальность</label>
+                            <select class="form-control" id="dpSpecialty"><option value="">— не указана —</option></select>
+                        </div>
+                        <div class="form-group" style="margin-bottom:var(--space-12);">
+                            <label class="form-label">Телефон</label>
+                            <input type="text" class="form-control" id="dpPhone" placeholder="+992 ...">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-12);">
+                        <div class="form-group" style="margin-bottom:var(--space-12);">
+                            <label class="form-label">Место работы</label>
+                            <input type="text" class="form-control" id="dpWorkplace" placeholder="Клиника / отделение">
+                        </div>
+                        <div class="form-group" style="margin-bottom:var(--space-12);">
+                            <label class="form-label">Номер кошелька</label>
+                            <input type="text" class="form-control" id="dpWallet" placeholder="номер кошелька">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-12);">
+                        <div class="form-group" style="margin-bottom:var(--space-12);">
+                            <label class="form-label">Профессионализм</label>
+                            <div class="star-input" id="dpProfRating" data-value="0"></div>
+                        </div>
+                        <div class="form-group" style="margin-bottom:var(--space-12);">
+                            <label class="form-label">Сотрудничество</label>
+                            <div class="star-input" id="dpCoopRating" data-value="0"></div>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-bottom:var(--space-12);">
+                        <label class="form-label">Описание</label>
+                        <textarea class="form-control" id="dpDescription" rows="2" placeholder="Краткое описание врача"></textarea>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Заметки</label>
+                        <textarea class="form-control" id="dpNotes" rows="2" placeholder="Внутренние заметки"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideDoctorProfileModal()">Отмена</button>
+                <button class="btn btn-success" onclick="saveDoctorProfile()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно: управление специальностями -->
+    <div id="specialtiesModal" class="modal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2>🏷 Специальности врачей</h2>
+                <button class="close-btn" onclick="hideSpecialtiesModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex;gap:var(--space-8);margin-bottom:var(--space-16);">
+                    <input type="text" class="form-control" id="newSpecialtyIcon" placeholder="🩺" style="width:64px;text-align:center;">
+                    <input type="text" class="form-control" id="newSpecialtyName" placeholder="Название специальности">
+                    <button class="btn btn-success" onclick="addSpecialty()">➕</button>
+                </div>
+                <div id="specialtiesListBody"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideSpecialtiesModal()">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Нижняя навигация (мобильная) -->
+    <nav class="bottom-nav" id="bottomNav">
+        <div class="bottom-nav-inner">
+            <button class="bottom-nav-btn" id="bnDashboard" onclick="showDashboard()"><span class="bn-icon">📊</span>Главная</button>
+            <button class="bottom-nav-btn" id="bnDoctors" onclick="showDoctorsSection()"><span class="bn-icon">🧑‍⚕️</span>Врачи</button>
+            <button class="bottom-nav-btn" id="bnRecon" onclick="showSalesReconSection()"><span class="bn-icon">💵</span>Продажи</button>
+            <button class="bottom-nav-btn" id="bnPayments" onclick="showPaymentsSection()"><span class="bn-icon">💳</span>Выплаты</button>
+            <button class="bottom-nav-btn" id="bnPlan" onclick="showPlanSection()"><span class="bn-icon">🗓</span>План</button>
+            <button class="bottom-nav-btn" id="bnProfile" onclick="showProfileSection()"><span class="bn-icon">🧑‍💼</span>Профиль</button>
+        </div>
+    </nav>
+
     <!-- Уведомления -->
     <div id="notification" class="notification"></div>
 
@@ -1922,6 +2244,7 @@
             localStorage.removeItem('currentUser');
             allUsers = [];
             adminViewingRepLogin = null;
+            document.body.classList.remove('app-authed');
             showPage('loginPage');
             document.getElementById('loginForm').reset();
             showNotification('👋 До свидания!', 'success');
@@ -1947,14 +2270,15 @@
 
             const isAdmin = currentUser.role === 'admin';
             // Кнопка возврата на дашборд всегда видна после входа
-            document.getElementById('dashboardNavBtn').style.display = 'inline-block';
+            document.getElementById('dashboardNavBtn').style.display = 'inline-flex';
             // Кнопки, доступные только администратору
             ['doctorSalesBtn','manageRepsBtn','adminStatsBtn'].forEach(id =>
-                document.getElementById(id).style.display = isAdmin ? 'inline-block' : 'none');
+                document.getElementById(id).style.display = isAdmin ? 'inline-flex' : 'none');
             // Кнопки, доступные обеим ролям
-            ['salesReconBtn','paymentsBtn','planBtn','profileBtn'].forEach(id =>
-                document.getElementById(id).style.display = 'inline-block');
+            ['doctorsBtn','salesReconBtn','paymentsBtn','planBtn','profileBtn'].forEach(id =>
+                document.getElementById(id).style.display = 'inline-flex');
 
+            document.body.classList.add('app-authed');
             setActiveNav('dashboardNavBtn');
 
             if (isAdmin) {
@@ -1971,12 +2295,13 @@
         }
 
         // Список идентификаторов новых вкладок-секций
-        const SUB_SECTION_IDS = ['doctorSalesSection','manageRepsSection','salesReconSection',
+        const SUB_SECTION_IDS = ['doctorsSection','doctorSalesSection','manageRepsSection','salesReconSection',
             'paymentsSection','planSection','profileSection','adminStatsSection'];
-        const NAV_BTN_IDS = ['dashboardNavBtn','doctorSalesBtn','manageRepsBtn','salesReconBtn',
+        const NAV_BTN_IDS = ['dashboardNavBtn','doctorsBtn','doctorSalesBtn','manageRepsBtn','salesReconBtn',
             'paymentsBtn','planBtn','profileBtn','adminStatsBtn'];
         // Соответствие секция → кнопка навигации (для подсветки активной вкладки)
         const SECTION_TO_NAV_BTN = {
+            doctorsSection: 'doctorsBtn',
             doctorSalesSection: 'doctorSalesBtn',
             manageRepsSection: 'manageRepsBtn',
             salesReconSection: 'salesReconBtn',
@@ -1985,16 +2310,30 @@
             profileSection: 'profileBtn',
             adminStatsSection: 'adminStatsBtn'
         };
+        // Соответствие кнопки верхней навигации → кнопка нижней навигации (mobile)
+        const NAV_BTN_TO_BOTTOM = {
+            dashboardNavBtn: 'bnDashboard',
+            doctorsBtn: 'bnDoctors',
+            salesReconBtn: 'bnRecon',
+            paymentsBtn: 'bnPayments',
+            planBtn: 'bnPlan',
+            profileBtn: 'bnProfile'
+        };
 
         function hideAllSubSections() {
             SUB_SECTION_IDS.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; });
         }
 
-        // Подсветить активную вкладку в верхней навигации
+        // Подсветить активную вкладку в верхней и нижней навигации
         function setActiveNav(activeBtnId) {
             NAV_BTN_IDS.forEach(id => {
                 const b = document.getElementById(id);
                 if (b) b.classList.toggle('nav-active', id === activeBtnId);
+            });
+            const activeBottom = NAV_BTN_TO_BOTTOM[activeBtnId] || null;
+            Object.values(NAV_BTN_TO_BOTTOM).forEach(bid => {
+                const b = document.getElementById(bid);
+                if (b) b.classList.toggle('nav-active', bid === activeBottom);
             });
         }
 
@@ -2012,6 +2351,255 @@
         function activeRepLogin() {
             return (currentUser.role === 'admin' && adminViewingRepLogin)
                 ? adminViewingRepLogin : currentUser.login;
+        }
+
+        // ============================================================
+        // ВКЛАДКА: ВРАЧИ (справочник + расширенные профили)
+        // ============================================================
+        let crmDoctors = [];          // полный список врачей из crm_doctors
+        let crmSpecialties = [];      // справочник специальностей
+        let activeSpecialtyFilter = ''; // '' = все, иначе id специальности
+
+        function showDoctorsSection() {
+            if (!currentUser) return;
+            openSubSection('doctorsSection');
+            loadDoctorsAndSpecialties();
+        }
+
+        async function loadDoctorsAndSpecialties() {
+            const container = document.getElementById('doctorsListContainer');
+            container.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">⏳</div><h3>Загрузка...</h3></div>';
+            try {
+                const [docs, specs] = await Promise.all([
+                    sbSelect('crm_doctors?select=*&order=doctor_name.asc&limit=2000'),
+                    sbSelect('crm_doctor_specialties?select=*&order=sort_order.asc,name.asc').catch(() => [])
+                ]);
+                crmDoctors = Array.isArray(docs) ? docs : [];
+                crmSpecialties = Array.isArray(specs) ? specs : [];
+                renderSpecialtyChips();
+                renderDoctorsList();
+            } catch (err) {
+                console.error('Ошибка загрузки врачей:', err);
+                container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">⚠️</div><h3>Ошибка загрузки</h3><p>${err.message}. Примените миграцию sql-doctor-profiles-ui.sql.</p></div>`;
+            }
+        }
+
+        function specialtyById(id) {
+            return crmSpecialties.find(s => String(s.id) === String(id)) || null;
+        }
+
+        function renderSpecialtyChips() {
+            const wrap = document.getElementById('doctorsSpecialtyChips');
+            if (!wrap) return;
+            const chips = [`<span class="chip clickable ${activeSpecialtyFilter === '' ? 'active' : ''}" onclick="setSpecialtyFilter('')">Все</span>`];
+            crmSpecialties.forEach(s => {
+                const act = String(activeSpecialtyFilter) === String(s.id) ? 'active' : '';
+                chips.push(`<span class="chip clickable ${act}" onclick="setSpecialtyFilter('${s.id}')">${s.icon || '🏷'} ${escapeHtml(s.name)}</span>`);
+            });
+            wrap.innerHTML = chips.join('');
+        }
+
+        function setSpecialtyFilter(id) {
+            activeSpecialtyFilter = id;
+            renderSpecialtyChips();
+            renderDoctorsList();
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        function starsHtml(n) {
+            n = Number(n) || 0;
+            let out = '';
+            for (let i = 1; i <= 5; i++) out += i <= n ? '★' : '☆';
+            return out;
+        }
+
+        function renderDoctorsList() {
+            const container = document.getElementById('doctorsListContainer');
+            if (!container) return;
+            const q = (document.getElementById('doctorsSearchInput').value || '').toLowerCase().trim();
+            let list = crmDoctors.slice();
+            if (activeSpecialtyFilter !== '') {
+                list = list.filter(d => String(d.specialty_id) === String(activeSpecialtyFilter));
+            }
+            if (q) {
+                list = list.filter(d =>
+                    (d.doctor_name || '').toLowerCase().includes(q) ||
+                    (d.doctor_code || '').toLowerCase().includes(q) ||
+                    (d.workplace || '').toLowerCase().includes(q) ||
+                    (d.specialty || '').toLowerCase().includes(q) ||
+                    (d.phone || '').toLowerCase().includes(q));
+            }
+            if (list.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><div class="empty-state-icon">🔍</div><h3>Врачи не найдены</h3><p>Измените фильтр или добавьте врача.</p></div>';
+                return;
+            }
+            container.innerHTML = list.map(d => {
+                const spec = specialtyById(d.specialty_id);
+                const specLabel = spec ? `${spec.icon || '🏷'} ${escapeHtml(spec.name)}` : (d.specialty ? `🏷 ${escapeHtml(d.specialty)}` : '');
+                const initials = (d.doctor_name || '?').trim().charAt(0).toUpperCase();
+                const profR = Number(d.professional_rating) || 0;
+                return `<div class="doctor-card-item" onclick="showDoctorProfileModal('${escapeHtml(d.doctor_code)}')">
+                    <div class="doctor-card-top">
+                        <div class="doctor-avatar">${initials}</div>
+                        <div style="min-width:0;">
+                            <div class="doctor-card-name">${escapeHtml(d.doctor_name || 'Без имени')}</div>
+                            <div class="doctor-card-meta">Код: ${escapeHtml(d.doctor_code)}${d.workplace ? ' · ' + escapeHtml(d.workplace) : ''}</div>
+                        </div>
+                    </div>
+                    ${specLabel ? `<div class="chip teal" style="align-self:flex-start;">${specLabel}</div>` : ''}
+                    ${d.description ? `<div class="doctor-card-desc">${escapeHtml(d.description)}</div>` : ''}
+                    <div class="doctor-card-footer">
+                        <span class="rating-stars" title="Профессионализм">${starsHtml(profR)}<span class="rating-label"> проф.</span></span>
+                        ${d.phone ? `<span class="doctor-card-meta">📞 ${escapeHtml(d.phone)}</span>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // ---- Модалка профиля врача ----
+        function fillSpecialtySelect(selectedId) {
+            const sel = document.getElementById('dpSpecialty');
+            sel.innerHTML = '<option value="">— не указана —</option>' +
+                crmSpecialties.map(s => `<option value="${s.id}" ${String(s.id) === String(selectedId) ? 'selected' : ''}>${escapeHtml((s.icon ? s.icon + ' ' : '') + s.name)}</option>`).join('');
+        }
+
+        function renderStarInput(elId, value) {
+            const el = document.getElementById(elId);
+            const val = Number(value) || 0;
+            el.dataset.value = String(val);
+            el.innerHTML = [1, 2, 3, 4, 5].map(i =>
+                `<span class="star ${i <= val ? 'on' : ''}" data-v="${i}">★</span>`).join('');
+            el.querySelectorAll('.star').forEach(s => {
+                s.onclick = () => {
+                    const v = Number(s.dataset.v);
+                    const cur = Number(el.dataset.value);
+                    const nv = v === cur ? 0 : v; // повторный клик по той же звезде = сброс
+                    renderStarInput(elId, nv);
+                };
+            });
+        }
+
+        function showDoctorProfileModal(doctorCode) {
+            // Если справочник специальностей ещё не загружен (например открыли из визита) — подгрузим
+            if (crmSpecialties.length === 0) {
+                sbSelect('crm_doctor_specialties?select=*&order=sort_order.asc,name.asc')
+                    .then(s => { crmSpecialties = Array.isArray(s) ? s : []; })
+                    .catch(() => {});
+            }
+            const d = doctorCode ? crmDoctors.find(x => x.doctor_code === doctorCode) : null;
+            document.getElementById('doctorProfileTitle').textContent = d ? 'Редактировать врача' : 'Добавить врача';
+            document.getElementById('dpDoctorId').value = d ? d.doctor_code : '';
+            document.getElementById('dpName').value = d ? (d.doctor_name || '') : '';
+            document.getElementById('dpCode').value = d ? (d.doctor_code || '') : '';
+            document.getElementById('dpCode').readOnly = !!d; // код существующего врача не меняем
+            document.getElementById('dpPhone').value = d ? (d.phone || '') : '';
+            document.getElementById('dpWorkplace').value = d ? (d.workplace || '') : '';
+            document.getElementById('dpWallet').value = d ? (d.wallet_number || '') : '';
+            document.getElementById('dpDescription').value = d ? (d.description || '') : '';
+            document.getElementById('dpNotes').value = d ? (d.notes || '') : '';
+            fillSpecialtySelect(d ? d.specialty_id : '');
+            renderStarInput('dpProfRating', d ? d.professional_rating : 0);
+            renderStarInput('dpCoopRating', d ? d.cooperation_rating : 0);
+            document.getElementById('doctorProfileModal').classList.add('active');
+        }
+        function hideDoctorProfileModal() { document.getElementById('doctorProfileModal').classList.remove('active'); }
+
+        async function saveDoctorProfile() {
+            const code = document.getElementById('dpCode').value.trim();
+            const name = document.getElementById('dpName').value.trim();
+            if (!code || !name) { showNotification('❌ Укажите имя и код врача', 'error'); return; }
+            const specId = document.getElementById('dpSpecialty').value;
+            const specName = specId ? (specialtyById(specId)?.name || null) : null;
+            const profR = Number(document.getElementById('dpProfRating').dataset.value) || null;
+            const coopR = Number(document.getElementById('dpCoopRating').dataset.value) || null;
+            const payload = {
+                doctor_name: name,
+                phone: document.getElementById('dpPhone').value.trim() || null,
+                workplace: document.getElementById('dpWorkplace').value.trim() || null,
+                wallet_number: document.getElementById('dpWallet').value.trim() || null,
+                description: document.getElementById('dpDescription').value.trim() || null,
+                notes: document.getElementById('dpNotes').value.trim() || null,
+                specialty_id: specId ? Number(specId) : null,
+                specialty: specName,
+                professional_rating: profR,
+                cooperation_rating: coopR
+            };
+            showLoading(true);
+            try {
+                const existing = crmDoctors.find(x => x.doctor_code === code);
+                if (existing) {
+                    await sbPatch('crm_doctors', `doctor_code=eq.${encodeURIComponent(code)}`, payload);
+                } else {
+                    await sbInsert('crm_doctors', Object.assign({ doctor_code: code, source: 'manual', active: true }, payload));
+                }
+                showNotification('✅ Профиль врача сохранён', 'success');
+                hideDoctorProfileModal();
+                await loadDoctorsAndSpecialties();
+            } catch (err) {
+                console.error('Ошибка сохранения врача:', err);
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+            showLoading(false);
+        }
+
+        // ---- Модалка специальностей (CRUD) ----
+        async function showSpecialtiesModal() {
+            document.getElementById('specialtiesModal').classList.add('active');
+            if (crmSpecialties.length === 0) {
+                try { crmSpecialties = await sbSelect('crm_doctor_specialties?select=*&order=sort_order.asc,name.asc'); } catch (_) {}
+            }
+            renderSpecialtiesList();
+        }
+        function hideSpecialtiesModal() { document.getElementById('specialtiesModal').classList.remove('active'); }
+
+        function renderSpecialtiesList() {
+            const body = document.getElementById('specialtiesListBody');
+            if (!crmSpecialties.length) { body.innerHTML = '<p style="color:var(--text-muted);text-align:center;">Нет специальностей</p>'; return; }
+            body.innerHTML = crmSpecialties.map(s => `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-color);">
+                    <span class="chip teal">${s.icon || '🏷'} ${escapeHtml(s.name)}</span>
+                    <button class="btn btn-sm btn-error" onclick="deleteSpecialty('${s.id}')">Удалить</button>
+                </div>`).join('');
+        }
+
+        async function addSpecialty() {
+            const name = document.getElementById('newSpecialtyName').value.trim();
+            const icon = document.getElementById('newSpecialtyIcon').value.trim();
+            if (!name) { showNotification('❌ Введите название специальности', 'error'); return; }
+            try {
+                const sort = crmSpecialties.length ? Math.max(...crmSpecialties.map(s => Number(s.sort_order) || 0)) + 1 : 1;
+                const rows = await sbInsert('crm_doctor_specialties', { name, icon: icon || null, sort_order: sort, active: true });
+                if (Array.isArray(rows) && rows[0]) crmSpecialties.push(rows[0]);
+                document.getElementById('newSpecialtyName').value = '';
+                document.getElementById('newSpecialtyIcon').value = '';
+                renderSpecialtiesList();
+                renderSpecialtyChips();
+                showNotification('✅ Специальность добавлена', 'success');
+            } catch (err) {
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+        }
+
+        async function deleteSpecialty(id) {
+            if (!confirm('Удалить специальность? У врачей она будет снята.')) return;
+            try {
+                const r = await fetch(`${SUPABASE_URL}/rest/v1/crm_doctor_specialties?id=eq.${encodeURIComponent(id)}`, {
+                    method: 'DELETE', headers: sbHeaders()
+                });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                crmSpecialties = crmSpecialties.filter(s => String(s.id) !== String(id));
+                if (String(activeSpecialtyFilter) === String(id)) activeSpecialtyFilter = '';
+                renderSpecialtiesList();
+                renderSpecialtyChips();
+                renderDoctorsList();
+                showNotification('✅ Специальность удалена', 'success');
+            } catch (err) {
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
         }
 
         function showDoctorSalesSection() {
@@ -2039,10 +2627,34 @@
                     psEl.value = last.period_start;
                     peEl.value = last.period_end;
                 } else {
-                    // запасной вариант — текущий месяц
-                    const b = rangeBounds('month');
-                    psEl.value = b.from;
-                    peEl.value = b.to;
+                    // запасной вариант — Май 2026 (последние доступные данные синхронизации)
+                    psEl.value = '2026-05-01';
+                    peEl.value = '2026-05-31';
+                }
+            }
+            loadSalesRecon();
+        }
+
+        // Быстрый выбор периода для вкладки «Продажи» (сверка)
+        async function setReconQuickPeriod(kind) {
+            const psEl = document.getElementById('reconPeriodStart');
+            const peEl = document.getElementById('reconPeriodEnd');
+            if (kind === 'may2026') {
+                psEl.value = '2026-05-01'; peEl.value = '2026-05-31';
+            } else if (kind === 'thisMonth') {
+                const b = rangeBounds('month'); psEl.value = b.from; peEl.value = b.to;
+            } else if (kind === 'lastMonth') {
+                const now = new Date();
+                const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const last = new Date(now.getFullYear(), now.getMonth(), 0);
+                psEl.value = ymd(first); peEl.value = ymd(last);
+            } else if (kind === 'lastSync') {
+                const last = await fetchLastSyncRun();
+                if (last && last.period_start && last.period_end) {
+                    psEl.value = last.period_start; peEl.value = last.period_end;
+                } else {
+                    showNotification('Нет данных о последней синхронизации', 'error');
+                    return;
                 }
             }
             loadSalesRecon();
@@ -3515,17 +4127,17 @@
                 tbody.innerHTML = list.map(r => {
                     const mismatch = r.status === 'mismatch';
                     const statusLabel = { matched: '✅ сверено', mismatch: '⚠️ расхождение', no_data: '— нет данных' }[r.status] || r.status;
-                    return `<tr${mismatch ? ' style="background:rgba(255,84,89,0.12);"' : ''}>
-                        <td>${r.doctor_name || '—'}</td>
-                        <td>${r.doctor_code}</td>
-                        <td>${num(r.onec_amount)}</td>
-                        <td>${r.onec_checks || 0}</td>
-                        <td>${num(r.docsales_amount)}</td>
-                        <td${mismatch ? ' style="color:var(--error-color);font-weight:700;"' : ''}>${r.diff_percent == null ? '—' : r.diff_percent + '%'}</td>
-                        <td>${num(r.bonus_10)}</td>
-                        <td>${num(r.bonus_patients)}</td>
-                        <td><strong>${num(r.total_payable)}</strong></td>
-                        <td>${statusLabel}</td>
+                    return `<tr${mismatch ? ' style="background:rgba(239,68,68,0.10);"' : ''}>
+                        <td data-label="Врач">${r.doctor_name || '—'}</td>
+                        <td data-label="Код">${r.doctor_code}</td>
+                        <td data-label="Продажи 1С">${num(r.onec_amount)}</td>
+                        <td data-label="Чеки 1С">${r.onec_checks || 0}</td>
+                        <td data-label="Продажи DocSales">${num(r.docsales_amount)}</td>
+                        <td data-label="Разница %"${mismatch ? ' style="color:var(--error-color);font-weight:700;"' : ''}>${r.diff_percent == null ? '—' : r.diff_percent + '%'}</td>
+                        <td data-label="Бонус 10%">${num(r.bonus_10)}</td>
+                        <td data-label="Бонус пациенты">${num(r.bonus_patients)}</td>
+                        <td data-label="Итого к выплате"><strong>${num(r.total_payable)}</strong></td>
+                        <td data-label="Статус">${statusLabel}</td>
                     </tr>`;
                 }).join('');
             } catch (err) {
