@@ -1192,6 +1192,8 @@
         }
     </style>
 
+    <!-- SheetJS (XLSX) для экспорта таблицы продаж в Excel. Загружается лениво
+         только тогда, когда пользователь жмёт «Скачать Excel» (см. ensureXlsxLib). -->
 </head>
 <body>
     <!-- Страница авторизации -->
@@ -1427,6 +1429,9 @@
                         </div>
                         <div>
                             <button class="btn btn-primary" onclick="loadSalesRecon()">🔍 Показать</button>
+                        </div>
+                        <div>
+                            <button class="btn btn-success" onclick="exportSalesReconToExcel()">⬇️ Скачать Excel</button>
                         </div>
                     </div>
                     <div class="chip-row" style="margin-top:14px;margin-bottom:0;">
@@ -3678,6 +3683,94 @@
         // легаси period-строки этого же врача, пересекающиеся с диапазоном, игнорируются
         // (приоритет у day-строк). Это исключает суммирование одних и тех же продаж
         // и из дневных, и из агрегированной за период строки.
+        // Чистая (тестируемая) функция строгой фильтрации строк кэша по выбранному
+        // диапазону [ps, pe]. Вынесена из fetchCacheRows, чтобы покрыть юнит-тестами.
+        // Правила (см. подробный комментарий выше):
+        //   • day-строка (есть sale_date) попадает, если ps <= sale_date <= pe;
+        //   • legacy period-строка (sale_date пуст) попадает, ТОЛЬКО если её период
+        //     ЦЕЛИКОМ внутри выбранного: ps <= period_start AND period_end <= pe;
+        //   • если у врача есть хотя бы одна day-строка в диапазоне — его legacy
+        //     period-строки игнорируются (приоритет дню), чтобы не считать дважды
+        //     и не показывать полномесячную строку при выборе пары дней.
+        function filterCacheRowsByRange(rows, ps, pe) {
+            const filtered = (rows || []).filter(r => {
+                if (r.sale_date) return r.sale_date >= ps && r.sale_date <= pe;
+                // Пустой sale_date: строка валидна только если ВЕСЬ период внутри выбора.
+                if (r.period_start == null || r.period_end == null) return false;
+                return r.period_start >= ps && r.period_end <= pe;
+            });
+            const daysByDoctor = new Set(
+                filtered.filter(r => r.sale_date).map(r => r.doctor_code)
+            );
+            return filtered.filter(r => r.sale_date || !daysByDoctor.has(r.doctor_code));
+        }
+
+        // Последний показанный результат сверки — источник истины для экспорта Excel.
+        let currentReconExport = { rows: [], periodStart: null, periodEnd: null, doctorCode: null };
+
+        // Чистая агрегация строк кэша 1С/DocSales в итоговый список по врачу.
+        // Вынесена из loadSalesRecon для юнит-тестов. Логика дедупа/канонизации
+        // врачей (resolveCode, дедуп DocSales по коду×день) сохранена без изменений.
+        function buildReconList(onec, docsales, doctors) {
+            const nameByCode = {};
+            (doctors || []).forEach(d => { nameByCode[d.doctor_code] = d.doctor_name; });
+
+            // Резолвер кодов: приводит ЛЮБОЙ код DocSales (числовой, fallback
+            // `name:<norm>` или код из doctors) к стабильному CRM doctor_code,
+            // матча в первую очередь по ИМЕНИ врача (точно/нечётко).
+            const resolveCode = buildDoctorCodeResolver(doctors);
+
+            const agg = {};
+            const ensure = (code) => (agg[code] = agg[code] || {
+                doctor_code: code, onec_amount: 0, onec_checks: 0, docsales_amount: 0, docsales_checks: 0,
+                fallback_name: null
+            });
+            (onec || []).forEach(r => {
+                const a = ensure(resolveCode(r.doctor_code, nameByCode[r.doctor_code]));
+                a.onec_amount += Number(r.amount) || 0;
+                a.onec_checks += Number(r.checks_count) || 0;
+            });
+            // Дедуп DocSales-строк по (канонический код × день): берём строку с
+            // самым свежим synced_at на ключ, чтобы старый неверный код не удвоил сумму.
+            const dsByKey = new Map();
+            (docsales || []).forEach(r => {
+                const code = resolveCode(r.doctor_code, r.doctor_name);
+                const day = r.sale_date || `${r.period_start}|${r.period_end}`;
+                const key = `${code}|${day}`;
+                const prev = dsByKey.get(key);
+                if (!prev || String(r.synced_at || '') > String(prev.synced_at || '')) {
+                    dsByKey.set(key, { ...r, _code: code });
+                }
+            });
+            [...dsByKey.values()].forEach(r => {
+                const code = r._code;
+                const a = ensure(code);
+                a.docsales_amount += Number(r.amount) || 0;
+                a.docsales_checks += Number(r.checks_count) || 0;
+                if (!nameByCode[code] && r.doctor_name && !a.fallback_name) a.fallback_name = r.doctor_name;
+            });
+
+            return Object.values(agg).map(a => {
+                const bonus10 = a.onec_amount * 0.10;
+                const bonusPatients = a.onec_checks * 10;
+                const total = bonus10 + bonusPatients;
+                const diff = a.onec_amount > 0
+                    ? Math.round(Math.abs(a.onec_amount - a.docsales_amount) / a.onec_amount * 10000) / 100
+                    : null;
+                let status = 'matched';
+                if (a.onec_amount === 0) status = 'no_data';
+                else if (diff != null && diff > 10) status = 'mismatch';
+                return {
+                    doctor_code: a.doctor_code,
+                    doctor_name: nameByCode[a.doctor_code] || a.fallback_name || '—',
+                    onec_amount: a.onec_amount, onec_checks: a.onec_checks,
+                    docsales_amount: a.docsales_amount, docsales_checks: a.docsales_checks,
+                    diff_percent: diff, bonus_10: bonus10, bonus_patients: bonusPatients,
+                    total_payable: total, status
+                };
+            }).sort((x, y) => y.total_payable - x.total_payable);
+        }
+
         async function fetchCacheRows(table, ps, pe, dc) {
             // Запрашиваем кандидатов: либо по sale_date в диапазоне, либо строки
             // без sale_date, чей период целиком внутри выбранного.
@@ -3686,17 +3779,8 @@
             let path = `${table}?select=*&or=(${byDay},${byPeriod})`;
             if (dc) path += `&doctor_code=eq.${encodeURIComponent(dc)}`;
             const rows = await sbSelect(path);
-            // Защитная строгая фильтрация на клиенте (на случай отличий бэкенда).
-            const filtered = (rows || []).filter(r => {
-                if (r.sale_date) return r.sale_date >= ps && r.sale_date <= pe;
-                return r.period_start >= ps && r.period_end <= pe;
-            });
-            // Врачи, у которых есть хотя бы одна day-строка в диапазоне.
-            const daysByDoctor = new Set(
-                filtered.filter(r => r.sale_date).map(r => r.doctor_code)
-            );
-            // Day-строки берём все; legacy period-строки — только для врачей без day-строк.
-            return filtered.filter(r => r.sale_date || !daysByDoctor.has(r.doctor_code));
+            // Строгая защитная фильтрация на клиенте (на случай отличий бэкенда).
+            return filterCacheRowsByRange(rows, ps, pe);
         }
 
         async function loadSalesRecon() {
@@ -3733,6 +3817,8 @@
                 // (иначе период «не меняется»), а сообщаем об отсутствии данных и
                 // подсказываем последний доступный период для справки.
                 if ((!onec || onec.length === 0) && (!docsales || docsales.length === 0)) {
+                    // Нет данных за период — очищаем буфер экспорта, чтобы не скачать старое.
+                    currentReconExport = { rows: [], periodStart: ps, periodEnd: pe, doctorCode: dc || null };
                     let hint = '';
                     const anyOnec = await sbSelect('crm_onec_sales_cache?select=period_start,period_end&order=period_end.desc&limit=1');
                     if (anyOnec && anyOnec.length) {
@@ -3745,71 +3831,28 @@
                     return;
                 }
 
-                const nameByCode = {};
-                (doctors || []).forEach(d => { nameByCode[d.doctor_code] = d.doctor_name; });
+                // Агрегируем строки в итоговый список (чистая функция — тестируема).
+                const list = buildReconList(onec, docsales, doctors);
 
-                // Резолвер кодов: приводит ЛЮБОЙ код DocSales (числовой, fallback
-                // `name:<norm>` или код из doctors) к стабильному CRM doctor_code,
-                // матча в первую очередь по ИМЕНИ врача (точно/нечётко). Это
-                // устраняет дубли по уже закэшированным данным БЕЗ ресинка —
-                // напр. DocSales 673 «Курбонова Райфа» сливается с 1С 510.
-                const resolveCode = buildDoctorCodeResolver(doctors);
+                // Запоминаем то, что реально показано, и выбранный диапазон —
+                // ровно эти строки экспортируются в Excel (без скрытых/дублей).
+                currentReconExport = {
+                    rows: list,
+                    periodStart: ps,
+                    periodEnd: pe,
+                    doctorCode: dc || null
+                };
 
-                // Агрегируем по КАНОНИЧЕСКОМУ коду врача (после резолвинга),
-                // чтобы 1С- и DocSales-строки одного врача попадали в одну строку.
-                const agg = {};
-                const ensure = (code) => (agg[code] = agg[code] || {
-                    doctor_code: code, onec_amount: 0, onec_checks: 0, docsales_amount: 0, docsales_checks: 0,
-                    fallback_name: null
-                });
-                (onec || []).forEach(r => {
-                    // 1С-строки несут стабильный CRM-код; имя берём из справочника.
-                    const a = ensure(resolveCode(r.doctor_code, nameByCode[r.doctor_code]));
-                    a.onec_amount += Number(r.amount) || 0;
-                    a.onec_checks += Number(r.checks_count) || 0;
-                });
-                // Дедуп DocSales-строк по (канонический код × день): после ресинка
-                // в кэше могут остаться СТАРЫЕ строки с неверным кодом (напр. 673)
-                // рядом с новыми (510) за тот же день — оба резолвятся в 510 и иначе
-                // удвоили бы сумму. Берём строку с самым свежим synced_at на ключ.
-                const dsByKey = new Map();
-                (docsales || []).forEach(r => {
-                    const code = resolveCode(r.doctor_code, r.doctor_name);
-                    const day = r.sale_date || `${r.period_start}|${r.period_end}`;
-                    const key = `${code}|${day}`;
-                    const prev = dsByKey.get(key);
-                    if (!prev || String(r.synced_at || '') > String(prev.synced_at || '')) {
-                        dsByKey.set(key, { ...r, _code: code });
-                    }
-                });
-                [...dsByKey.values()].forEach(r => {
-                    const code = r._code;
-                    const a = ensure(code);
-                    a.docsales_amount += Number(r.amount) || 0;
-                    a.docsales_checks += Number(r.checks_count) || 0;
-                    // Имя для отображения, если в crm_doctors врача нет (несрезолвенный код).
-                    if (!nameByCode[code] && r.doctor_name && !a.fallback_name) a.fallback_name = r.doctor_name;
-                });
-
-                const list = Object.values(agg).map(a => {
-                    const bonus10 = a.onec_amount * 0.10;
-                    const bonusPatients = a.onec_checks * 10;
-                    const total = bonus10 + bonusPatients;
-                    const diff = a.onec_amount > 0
-                        ? Math.round(Math.abs(a.onec_amount - a.docsales_amount) / a.onec_amount * 10000) / 100
-                        : null;
-                    let status = 'matched';
-                    if (a.onec_amount === 0) status = 'no_data';
-                    else if (diff != null && diff > 10) status = 'mismatch';
-                    return {
-                        doctor_code: a.doctor_code,
-                        doctor_name: nameByCode[a.doctor_code] || a.fallback_name || '—',
-                        onec_amount: a.onec_amount, onec_checks: a.onec_checks,
-                        docsales_amount: a.docsales_amount,
-                        diff_percent: diff, bonus_10: bonus10, bonus_patients: bonusPatients,
-                        total_payable: total, status
-                    };
-                }).sort((x, y) => y.total_payable - x.total_payable);
+                // Показываем выбранный диапазон и гранулярность данных в статусе,
+                // чтобы пользователь видел, какой именно период загружен.
+                if (info) {
+                    const daySrc = (onec || []).some(r => r.sale_date) || (docsales || []).some(r => r.sale_date);
+                    const granularity = daySrc ? 'дневные данные' : 'агрегат за период';
+                    const rangeNote = `Показан период: ${ps} — ${pe} (${granularity}, врачей: ${list.length}).`;
+                    info.textContent = info.textContent
+                        ? `${rangeNote} ${info.textContent}`
+                        : rangeNote;
+                }
 
                 tbody.innerHTML = list.map(r => {
                     const mismatch = r.status === 'mismatch';
@@ -3829,11 +3872,126 @@
                 }).join('');
             } catch (err) {
                 console.error('Ошибка загрузки сверки:', err);
+                currentReconExport = { rows: [], periodStart: ps, periodEnd: pe, doctorCode: dc || null };
                 tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}. Проверьте, что миграция применена и кэш заполнен.</td></tr>`;
             }
         }
 
         function num(v) { return (Number(v) || 0).toFixed(2); }
+
+        // ---- Экспорт таблицы продаж в Excel (XLSX) ----------------------------
+        // Лениво подгружает SheetJS с CDN при первом нажатии «Скачать Excel».
+        let _xlsxLibPromise = null;
+        function ensureXlsxLib() {
+            if (window.XLSX) return Promise.resolve(window.XLSX);
+            if (_xlsxLibPromise) return _xlsxLibPromise;
+            _xlsxLibPromise = new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+                s.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('XLSX не загрузился'));
+                s.onerror = () => { _xlsxLibPromise = null; reject(new Error('Не удалось загрузить библиотеку Excel (нет интернета?)')); };
+                document.head.appendChild(s);
+            });
+            return _xlsxLibPromise;
+        }
+
+        // Превращает результат сверки в плоскую матрицу (AoA) для листа Excel.
+        // Чистая функция: первая строка — заголовки, далее — ровно показанные строки.
+        // Возвращает { header, aoa, meta } для удобства тестов и форматирования.
+        function buildReconExportAoa(exportState) {
+            const rows = (exportState && exportState.rows) || [];
+            const header = [
+                'Код врача', 'Врач', 'Продажи 1С', 'Чеки 1С',
+                'Продажи DocSales', 'Чеки DocSales', 'Разница %',
+                'Бонус 10%', 'Бонус пациенты', 'Итого к выплате', 'Статус сверки'
+            ];
+            const statusLabel = { matched: 'сверено', mismatch: 'расхождение', no_data: 'нет данных' };
+            const body = rows.map(r => [
+                r.doctor_code != null ? String(r.doctor_code) : '',
+                r.doctor_name || '—',
+                Number(r.onec_amount) || 0,
+                Number(r.onec_checks) || 0,
+                Number(r.docsales_amount) || 0,
+                Number(r.docsales_checks) || 0,
+                r.diff_percent == null ? null : Number(r.diff_percent) / 100,
+                Number(r.bonus_10) || 0,
+                Number(r.bonus_patients) || 0,
+                Number(r.total_payable) || 0,
+                statusLabel[r.status] || r.status || ''
+            ]);
+            return { header, aoa: [header, ...body], rowCount: body.length };
+        }
+
+        async function exportSalesReconToExcel() {
+            const st = currentReconExport;
+            if (!st || !st.rows || st.rows.length === 0) {
+                showNotification('❌ Нет данных для экспорта. Сначала нажмите «Показать».', 'error');
+                return;
+            }
+            let XLSX;
+            try {
+                XLSX = await ensureXlsxLib();
+            } catch (e) {
+                showNotification('❌ ' + e.message, 'error');
+                return;
+            }
+
+            const { header, aoa, rowCount } = buildReconExportAoa(st);
+            const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+            // Ширины колонок (символы) — читабельно сразу, без ручной подгонки.
+            ws['!cols'] = [
+                { wch: 10 },  // Код
+                { wch: 32 },  // Врач
+                { wch: 14 },  // Продажи 1С
+                { wch: 9 },   // Чеки 1С
+                { wch: 16 },  // Продажи DocSales
+                { wch: 13 },  // Чеки DocSales
+                { wch: 11 },  // Разница %
+                { wch: 13 },  // Бонус 10%
+                { wch: 15 },  // Бонус пациенты
+                { wch: 16 },  // Итого к выплате
+                { wch: 14 }   // Статус
+            ];
+            // Высота строки заголовка чуть больше для читаемости.
+            ws['!rows'] = [{ hpt: 22 }];
+            // Закреплённая шапка + автофильтр по всем колонкам.
+            ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' };
+            const lastCol = XLSX.utils.encode_col(header.length - 1);
+            ws['!autofilter'] = { ref: `A1:${lastCol}${rowCount + 1}` };
+
+            // Числовые форматы по колонкам данных (валюта / проценты).
+            const moneyFmt = '#,##0.00';
+            const pctFmt = '0.00%';
+            const colFmt = { 2: moneyFmt, 4: moneyFmt, 6: pctFmt, 7: moneyFmt, 8: moneyFmt, 9: moneyFmt };
+            for (let r = 1; r <= rowCount; r++) {
+                for (const cStr in colFmt) {
+                    const c = Number(cStr);
+                    const addr = XLSX.utils.encode_cell({ r, c });
+                    const cell = ws[addr];
+                    if (cell && cell.v != null && cell.t === 'n') cell.z = colFmt[c];
+                }
+            }
+            // Жирная шапка с переносом (community-сборка может проигнорировать стиль —
+            // это не ломает файл; ширины/формат/закрепление работают всегда).
+            for (let c = 0; c < header.length; c++) {
+                const addr = XLSX.utils.encode_cell({ r: 0, c });
+                if (ws[addr]) ws[addr].s = {
+                    font: { bold: true },
+                    alignment: { wrapText: true, vertical: 'center' },
+                    fill: { fgColor: { rgb: 'E8EEF7' } }
+                };
+            }
+
+            const wb = XLSX.utils.book_new();
+            const sheetName = `Продажи ${st.periodStart}_${st.periodEnd}`.slice(0, 31);
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+            const fname = `sales_${st.periodStart}_${st.periodEnd}` +
+                (st.doctorCode ? `_doc${st.doctorCode}` : '') + '.xlsx';
+            XLSX.writeFile(wb, fname, { cellStyles: true });
+            showNotification(`✅ Выгружено строк: ${rowCount} (${fname})`, 'success');
+        }
 
         // Нормализация имени врача (синхронно с scripts/sync-sales.js):
         // регистр, ё→е, пунктуация/пробелы.
