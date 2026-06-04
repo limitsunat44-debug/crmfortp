@@ -2706,13 +2706,7 @@
         // Будние даты недели (Пн–Пт), содержащей выбранную дату.
         function selectedWeekWorkdays() {
             const v = document.getElementById('planWeekPicker')?.value;
-            const base = v ? new Date(v + 'T00:00:00') : new Date();
-            base.setHours(0, 0, 0, 0);
-            const day = (base.getDay() + 6) % 7; // Пн = 0
-            const mon = new Date(base); mon.setDate(base.getDate() - day);
-            const days = [];
-            for (let i = 0; i < 5; i++) { const d = new Date(mon); d.setDate(mon.getDate() + i); days.push(d); }
-            return days;
+            return weekWorkdaysFor(v ? v : new Date());
         }
 
         function showProfileSection() {
@@ -3831,8 +3825,43 @@
         }
 
         // ---- Утилиты дат для плана / периодов ----
-        function ymd(d) { return d.toISOString().slice(0, 10); }
+        // ВАЖНО: используем локальные компоненты даты, а НЕ toISOString().
+        // toISOString() переводит в UTC, и в часовых поясах с положительным
+        // смещением (напр. Asia/Tashkent, UTC+5) локальная полночь уходит на
+        // предыдущий день — отсюда сдвиг недели и неверный день недели.
+        function ymd(d) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+        // Разбор строки даты-только (YYYY-MM-DD) как ЛОКАЛЬНОЙ календарной даты.
+        // new Date('YYYY-MM-DD') трактует строку как UTC-полночь → off-by-one.
+        function parseLocalDate(s) {
+            if (s instanceof Date) return s;
+            const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''));
+            if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            return new Date(s);
+        }
         function isWeekday(d) { const g = d.getDay(); return g !== 0 && g !== 6; }
+        // Чистая (тестируемая) функция: будние даты (Пн–Пт) недели, содержащей
+        // указанную дату. base — Date или строка YYYY-MM-DD (трактуется локально).
+        function weekWorkdaysFor(base) {
+            const b = parseLocalDate(base); b.setHours(0, 0, 0, 0);
+            const day = (b.getDay() + 6) % 7; // Пн = 0
+            const mon = new Date(b); mon.setDate(b.getDate() - day);
+            const days = [];
+            for (let i = 0; i < 5; i++) { const d = new Date(mon); d.setDate(mon.getDate() + i); days.push(d); }
+            return days;
+        }
+        // Чистая (тестируемая) фильтрация пунктов плана по диапазону дат [from, to]
+        // включительно. Сравнение строковое по plan_date (YYYY-MM-DD сортируется
+        // лексикографически = хронологически). cancelled-пункты отбрасываются.
+        function filterPlanItemsByRange(rows, from, to) {
+            return (rows || []).filter(p =>
+                p && p.status !== 'cancelled' &&
+                p.plan_date >= from && p.plan_date <= to);
+        }
         function nextWorkday(d) {
             const n = new Date(d);
             do { n.setDate(n.getDate() + 1); } while (!isWeekday(n));
@@ -4555,8 +4584,12 @@
                     });
                 } catch (_) {}
 
+                // Защитная клиентская фильтрация по выбранной неделе (та же
+                // тестируемая функция, что покрыта юнит-тестами): гарантирует, что
+                // пункт за дату внутри [from, to] действительно попадёт в доску.
                 const byDate = {};
-                (rows || []).forEach(p => { (byDate[p.plan_date] = byDate[p.plan_date] || []).push(p); });
+                filterPlanItemsByRange(rows, from, to)
+                    .forEach(p => { (byDate[p.plan_date] = byDate[p.plan_date] || []).push(p); });
 
                 board.innerHTML = days.map(d => {
                     const dStr = ymd(d);
@@ -4614,7 +4647,7 @@
             const id = document.getElementById('planMoveItemId').value;
             const newDate = document.getElementById('planMoveDate').value;
             if (!id || !newDate) { showNotification('❌ Укажите новую дату', 'error'); return; }
-            if (!isWeekday(new Date(newDate + 'T00:00:00'))) {
+            if (!isWeekday(parseLocalDate(newDate))) {
                 showNotification('❌ Перенос возможен только на будний день', 'error'); return;
             }
             try {
@@ -4753,7 +4786,7 @@
                 showNotification('❌ Укажите код врача и дату', 'error');
                 return;
             }
-            if (!isWeekday(new Date(plan_date))) {
+            if (!isWeekday(parseLocalDate(plan_date))) {
                 showNotification('❌ План можно ставить только на будни', 'error');
                 return;
             }
@@ -5100,7 +5133,7 @@
         }
 
         function formatDate(dateString) {
-            return new Date(dateString).toLocaleDateString('ru-RU');
+            return parseLocalDate(dateString).toLocaleDateString('ru-RU');
         }
 
         function showLoading(show) {

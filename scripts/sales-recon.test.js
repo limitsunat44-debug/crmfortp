@@ -47,6 +47,11 @@ const NEEDED = [
   'filterCacheRowsByRange',
   'buildReconList',
   'buildReconExportAoa',
+  'ymd',
+  'parseLocalDate',
+  'isWeekday',
+  'weekWorkdaysFor',
+  'filterPlanItemsByRange',
 ];
 
 const sandboxSrc = NEEDED.map((n) => extractFunction(HTML, n)).join('\n\n');
@@ -231,6 +236,80 @@ test('пустой стейт → только заголовок', () => {
   const { aoa, rowCount } = context.buildReconExportAoa({ rows: [] });
   assert.strictEqual(rowCount, 0);
   assert.strictEqual(aoa.length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Утилиты дат плана — устойчивость к часовому поясу (off-by-one)
+// Эти тесты ловят регрессию, когда ymd()/formatDate использовали toISOString()
+// и new Date('YYYY-MM-DD') (UTC), из-за чего в UTC+N дата уезжала на день назад,
+// а день недели и фильтр недели становились неверными.
+// ---------------------------------------------------------------------------
+console.log('date helpers (plan):');
+
+const RU_DOW = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+test('parseLocalDate трактует YYYY-MM-DD как локальную дату (без UTC-сдвига)', () => {
+  const d = context.parseLocalDate('2026-06-04');
+  assert.strictEqual(d.getFullYear(), 2026);
+  assert.strictEqual(d.getMonth(), 5); // июнь = 5
+  assert.strictEqual(d.getDate(), 4);
+});
+
+test('ymd(parseLocalDate(s)) — это сам s (круговой обход без сдвига)', () => {
+  for (const s of ['2026-06-04', '2026-06-05', '2026-01-01', '2026-12-31']) {
+    assert.strictEqual(context.ymd(context.parseLocalDate(s)), s);
+  }
+});
+
+test('04.06.2026 — четверг (Чт)', () => {
+  assert.strictEqual(RU_DOW[context.parseLocalDate('2026-06-04').getDay()], 'Чт');
+});
+
+test('05.06.2026 — пятница (Пт)', () => {
+  assert.strictEqual(RU_DOW[context.parseLocalDate('2026-06-05').getDay()], 'Пт');
+});
+
+test('будни и выходные определяются верно', () => {
+  assert.strictEqual(context.isWeekday(context.parseLocalDate('2026-06-04')), true);  // Чт
+  assert.strictEqual(context.isWeekday(context.parseLocalDate('2026-06-06')), false); // Сб
+  assert.strictEqual(context.isWeekday(context.parseLocalDate('2026-06-07')), false); // Вс
+});
+
+test('неделя, содержащая 04.06.2026, идёт Пн 01.06 … Пт 05.06', () => {
+  const days = context.weekWorkdaysFor('2026-06-04').map((d) => context.ymd(d));
+  assert.strictEqual(
+    JSON.stringify(days),
+    JSON.stringify(['2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04', '2026-06-05']));
+});
+
+// ---------------------------------------------------------------------------
+// filterPlanItemsByRange — пункт за 05.06 попадает в неделю 01.06–05.06
+// ---------------------------------------------------------------------------
+console.log('filterPlanItemsByRange (week plan):');
+
+test('пункт плана на 05.06.2026 попадает в свою неделю', () => {
+  const days = context.weekWorkdaysFor('2026-06-04').map(context.ymd);
+  const from = days[0], to = days[days.length - 1];
+  const rows = [
+    { id: 1, plan_date: '2026-06-05', status: 'planned' },
+    { id: 2, plan_date: '2026-06-04', status: 'planned' },
+    { id: 3, plan_date: '2026-05-29', status: 'planned' }, // прошлая неделя — вне
+    { id: 4, plan_date: '2026-06-08', status: 'planned' }, // следующая — вне
+  ];
+  const out = context.filterPlanItemsByRange(rows, from, to);
+  const ids = out.map((r) => r.id).sort((a, b) => a - b);
+  assert.strictEqual(JSON.stringify(ids), JSON.stringify([1, 2]), 'в неделю попадают только 04.06 и 05.06');
+});
+
+test('cancelled-пункты не показываются в неделе', () => {
+  const out = context.filterPlanItemsByRange(
+    [{ id: 1, plan_date: '2026-06-05', status: 'cancelled' }],
+    '2026-06-01', '2026-06-05');
+  assert.strictEqual(out.length, 0);
+});
+
+test('пустой/нулевой вход → пустой выход', () => {
+  assert.strictEqual(context.filterPlanItemsByRange(null, '2026-06-01', '2026-06-05').length, 0);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
