@@ -988,6 +988,84 @@
             font-size: var(--font-size-sm);
         }
 
+        /* ===== Вкладки внутри страницы Плана ===== */
+        .plan-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .plan-tab {
+            padding: 10px 18px;
+            border: 1px solid var(--border-color, #e0e0e0);
+            border-radius: var(--radius-base, 8px);
+            background: var(--card-bg, #fff);
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--text-secondary, #555);
+            transition: all 0.15s;
+        }
+        .plan-tab.active {
+            background: var(--primary-color, #2a9d8f);
+            color: #fff;
+            border-color: var(--primary-color, #2a9d8f);
+        }
+
+        /* ===== Доска недели (канбан по дням) ===== */
+        .week-board {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 14px;
+        }
+        .week-col {
+            background: var(--card-bg, #fff);
+            border: 1px solid var(--border-color, #e6e6e6);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            min-height: 120px;
+            overflow: hidden;
+        }
+        .week-col-head {
+            padding: 10px 12px;
+            background: linear-gradient(135deg, #2a9d8f22, #2a9d8f0a);
+            border-bottom: 1px solid var(--border-color, #eee);
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 6px;
+        }
+        .week-col-head .dow { font-size: var(--font-size-sm, 13px); color: var(--text-secondary, #777); font-weight: 500; }
+        .week-col-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+        .week-card {
+            border: 1px solid var(--border-color, #ececec);
+            border-radius: 10px;
+            padding: 10px;
+            background: #fafafa;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .week-card.paid { border-left: 4px solid #2ecc71; }
+        .week-card.unpaid { border-left: 4px solid #e74c3c; }
+        .week-card.cancelled { opacity: 0.55; }
+        .week-card-name { font-weight: 600; font-size: var(--font-size-sm, 14px); }
+        .week-card-code { color: #888; font-size: 12px; }
+        .week-card-meta { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .badge-paid { background: #e8f8ef; color: #1e8e4f; }
+        .badge-unpaid { background: #fdecea; color: #c0392b; }
+        .badge-amount { background: #eef2f7; color: #44607a; }
+        .week-card-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+        .week-card-actions .btn { padding: 4px 10px; font-size: 12px; }
+        .week-col-empty { color: #aaa; font-size: 13px; padding: 8px 2px; text-align: center; }
+
         /* ===== Стили для таблицы балансов всех ТП (только для администраторов) ===== */
         .rep-balances-table {
             width: 100%;
@@ -1524,38 +1602,54 @@
                         <button class="btn btn-secondary" onclick="carryOverMissedPlan()">↪️ Перенести невыполненные</button>
                     </div>
                 </div>
+                <div class="plan-tabs">
+                    <div class="plan-tab active" id="planTabMonth" onclick="switchPlanTab('month')">📅 План на месяц</div>
+                    <div class="plan-tab" id="planTabWeek" onclick="switchPlanTab('week')">🗂 План на неделю</div>
+                </div>
+
                 <div class="filters" style="margin-bottom:20px;">
                     <div style="display:flex;gap:15px;flex-wrap:wrap;align-items:flex-end;">
                         <div class="form-group" style="margin:0;" id="planRepWrap">
                             <label class="form-label">ТП</label>
                             <select id="planRepSelect" class="form-control" style="width:220px;" onchange="loadPlan()"></select>
                         </div>
-                        <div class="form-group" style="margin:0;">
-                            <label class="form-label">Диапазон</label>
-                            <select id="planRange" class="form-control" style="width:160px;" onchange="loadPlan()">
-                                <option value="tomorrow">Завтра</option>
-                                <option value="week">Неделя</option>
-                                <option value="month" selected>Месяц</option>
-                            </select>
+                        <div class="form-group" style="margin:0;" id="planMonthPickerWrap">
+                            <label class="form-label">Месяц</label>
+                            <input type="month" id="planMonthPicker" class="form-control" style="width:170px;" onchange="loadPlan()">
+                        </div>
+                        <div class="form-group" style="margin:0;display:none;" id="planWeekPickerWrap">
+                            <label class="form-label">Неделя (любая дата)</label>
+                            <input type="date" id="planWeekPicker" class="form-control" style="width:170px;" onchange="loadPlan()">
                         </div>
                     </div>
                 </div>
-                <div class="card">
-                    <div class="card-body">
-                        <div style="overflow-x:auto;">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Дата</th><th>Врач (код)</th><th>Статус</th>
-                                        <th>Оплата</th><th>План выплата</th><th>Факт выплата</th><th>Исходная дата</th>
-                                        <th>Комментарий</th><th>Действия</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="planBody">
-                                    <tr><td colspan="9" style="text-align:center;padding:40px;">Нет плановых пунктов</td></tr>
-                                </tbody>
-                            </table>
+
+                <!-- Подвкладка: План на месяц (таблица) -->
+                <div id="planMonthView">
+                    <div class="card">
+                        <div class="card-body">
+                            <div style="overflow-x:auto;">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Дата</th><th>Врач (код)</th><th>Статус</th>
+                                            <th>Оплата</th><th>План выплата</th><th>Факт выплата</th><th>Исходная дата</th>
+                                            <th>Комментарий</th><th>Действия</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="planBody">
+                                        <tr><td colspan="9" style="text-align:center;padding:40px;">Нет плановых пунктов</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Подвкладка: План на неделю (доска по дням) -->
+                <div id="planWeekView" style="display:none;">
+                    <div id="weekBoard" class="week-board">
+                        <div class="week-col-empty" style="grid-column:1/-1;">Загрузка...</div>
                     </div>
                 </div>
             </div>
@@ -1673,8 +1767,20 @@
                 <div class="modal-content">
                     <div class="modal-header"><h3>Добавить в план</h3><span class="close-btn" onclick="hidePlanItemForm()">&times;</span></div>
                     <div class="modal-body">
-                        <div class="form-group"><label class="form-label">Код врача *</label><input type="text" class="form-control" id="planFormDoctorCode"></div>
-                        <div class="form-group"><label class="form-label">Имя врача</label><input type="text" class="form-control" id="planFormDoctorName"></div>
+                        <div class="form-group">
+                            <label class="form-label">Код врача *</label>
+                            <div class="doctor-search">
+                                <input type="text" class="form-control" id="planFormDoctorCode" autocomplete="off" placeholder="Введите код — ФИО подставится">
+                                <div class="doctor-dropdown" id="planCodeDropdown"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ФИО врача</label>
+                            <div class="doctor-search">
+                                <input type="text" class="form-control" id="planFormDoctorName" autocomplete="off" placeholder="Введите фамилию — выберите врача">
+                                <div class="doctor-dropdown" id="planNameDropdown"></div>
+                            </div>
+                        </div>
                         <div class="form-group"><label class="form-label">Дата визита * (будний день)</label><input type="date" class="form-control" id="planFormDate"></div>
                         <div class="form-group"><label class="form-label">Плановая выплата</label><input type="number" step="0.01" class="form-control" id="planFormAmount" value="0"></div>
                         <div class="form-group"><label class="form-label">Комментарий</label><input type="text" class="form-control" id="planFormComment"></div>
@@ -1682,6 +1788,22 @@
                     <div class="modal-footer">
                         <button class="btn btn-secondary" onclick="hidePlanItemForm()">Отмена</button>
                         <button class="btn btn-success" onclick="savePlanItem()">Сохранить</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Модальное окно: перенос пункта плана на другую дату -->
+            <div id="planMoveModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header"><h3>Перенести визит</h3><span class="close-btn" onclick="hidePlanMoveForm()">&times;</span></div>
+                    <div class="modal-body">
+                        <input type="hidden" id="planMoveItemId">
+                        <p id="planMoveInfo" style="margin:0 0 12px;color:var(--text-secondary,#666);"></p>
+                        <div class="form-group"><label class="form-label">Новая дата * (будний день)</label><input type="date" class="form-control" id="planMoveDate"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="hidePlanMoveForm()">Отмена</button>
+                        <button class="btn btn-success" onclick="savePlanMove()">Перенести</button>
                     </div>
                 </div>
             </div>
@@ -1792,6 +1914,16 @@
                         <div class="currency-input">
                             <input type="number" class="form-control" id="amount" required min="0" step="0.01" placeholder="0.00">
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Период выплаты (за какой период)</label>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <input type="date" class="form-control" id="visitPeriodStart" style="flex:1;min-width:140px;" placeholder="с">
+                            <span style="color:var(--text-secondary,#666);">—</span>
+                            <input type="date" class="form-control" id="visitPeriodEnd" style="flex:1;min-width:140px;" placeholder="по">
+                        </div>
+                        <small style="color:var(--text-secondary,#666);">Необязательно. Указывает, за какой период выплата врачу (видно во вкладке «Выплаты»).</small>
                     </div>
 
                     <div class="form-group">
@@ -2520,6 +2652,8 @@
             loadPayments();
         }
 
+        let planActiveTab = 'month';   // 'month' | 'week'
+
         function showPlanSection() {
             if (!currentUser) return;
             openSubSection('planSection');
@@ -2530,7 +2664,55 @@
             } else {
                 wrap.style.display = 'none';
             }
+            // Значения по умолчанию для выбора месяца / недели
+            const mp = document.getElementById('planMonthPicker');
+            if (mp && !mp.value) mp.value = ymd(new Date()).slice(0, 7);
+            const wp = document.getElementById('planWeekPicker');
+            if (wp && !wp.value) wp.value = ymd(new Date());
+            ensureCrmDoctorsLoaded();
+            switchPlanTab(planActiveTab);
+        }
+
+        // Переключение подвкладок План на месяц / План на неделю.
+        function switchPlanTab(tab) {
+            planActiveTab = tab;
+            document.getElementById('planTabMonth').classList.toggle('active', tab === 'month');
+            document.getElementById('planTabWeek').classList.toggle('active', tab === 'week');
+            document.getElementById('planMonthView').style.display = tab === 'month' ? 'block' : 'none';
+            document.getElementById('planWeekView').style.display = tab === 'week' ? 'block' : 'none';
+            document.getElementById('planMonthPickerWrap').style.display = tab === 'month' ? 'block' : 'none';
+            document.getElementById('planWeekPickerWrap').style.display = tab === 'week' ? 'block' : 'none';
             loadPlan();
+        }
+
+        // Текущий просматриваемый ТП на странице плана.
+        function planRepLogin() {
+            return currentUser.role === 'admin'
+                ? (document.getElementById('planRepSelect').value || activeRepLogin())
+                : currentUser.login;
+        }
+
+        // Границы выбранного месяца (из input[type=month]) или текущего.
+        function selectedMonthBounds() {
+            const v = document.getElementById('planMonthPicker')?.value;
+            let y, m;
+            if (v) { const [yy, mm] = v.split('-'); y = Number(yy); m = Number(mm) - 1; }
+            else { const t = new Date(); y = t.getFullYear(); m = t.getMonth(); }
+            const first = new Date(y, m, 1);
+            const last = new Date(y, m + 1, 0);
+            return { from: ymd(first), to: ymd(last) };
+        }
+
+        // Будние даты недели (Пн–Пт), содержащей выбранную дату.
+        function selectedWeekWorkdays() {
+            const v = document.getElementById('planWeekPicker')?.value;
+            const base = v ? new Date(v + 'T00:00:00') : new Date();
+            base.setHours(0, 0, 0, 0);
+            const day = (base.getDay() + 6) % 7; // Пн = 0
+            const mon = new Date(base); mon.setDate(base.getDate() - day);
+            const days = [];
+            for (let i = 0; i < 5; i++) { const d = new Date(mon); d.setDate(mon.getDate() + i); days.push(d); }
+            return days;
         }
 
         function showProfileSection() {
@@ -3273,6 +3455,10 @@
                 document.getElementById('visitTime').value = now.toISOString().slice(0, 16);
                 document.querySelectorAll('.status-option').forEach(btn => btn.classList.remove('active'));
                 document.getElementById('satisfactionStatus').value = '';
+                const psEl = document.getElementById('visitPeriodStart');
+                const peEl = document.getElementById('visitPeriodEnd');
+                if (psEl) psEl.value = '';
+                if (peEl) peEl.value = '';
             }
             modal.classList.add('active');
         }
@@ -3429,12 +3615,16 @@
                 let paymentRecorded = false;
                 if (amount > 0) {
                     try {
+                        const periodStart = document.getElementById('visitPeriodStart')?.value || null;
+                        const periodEnd = document.getElementById('visitPeriodEnd')?.value || null;
                         paymentRecorded = await recordDoctorPaymentFromVisit({
                             doctor_code: visitData.doctorId,
                             doctor_name: visitData.doctorName,
                             rep_login: targetLogin,
                             amount,
                             payment_date: planDate,
+                            period_start: periodStart,
+                            period_end: periodEnd,
                             comment: visitData.comment
                         });
                     } catch (err) {
@@ -4256,6 +4446,8 @@
                 rep_login: repLogin,
                 amount,
                 payment_date: paymentDate,
+                period_start: opts.period_start || null,
+                period_end: opts.period_end || null,
                 comment: opts.comment || null
             });
             return true;
@@ -4269,14 +4461,34 @@
             carried_over: '↪️ перенесён', cancelled: '🚫 отменён'
         };
 
+        // Признак «оплачено» для пункта плана. Источник истины — статус/факт пункта
+        // (план закрывается визитом, который пишет выплату), с запасным сопоставлением
+        // по crm_doctor_payments на эту дату/врача.
+        function planItemPaid(p, paymentsIndex) {
+            const planned = Number(p.planned_payment_amount) || 0;
+            const actual = Number(p.actual_payment_amount) || 0;
+            if (p.status === 'visited') {
+                return planned > 0 ? actual >= planned : actual > 0;
+            }
+            if (actual > 0 && (planned <= 0 || actual >= planned)) return true;
+            if (paymentsIndex) {
+                const key = `${p.doctor_code}|${p.plan_date}`;
+                const paid = paymentsIndex[key] || 0;
+                if (paid > 0 && (planned <= 0 || paid >= planned)) return true;
+            }
+            return false;
+        }
+
         async function loadPlan() {
-            const rep = currentUser.role === 'admin'
-                ? (document.getElementById('planRepSelect').value || activeRepLogin())
-                : currentUser.login;
-            const range = document.getElementById('planRange').value;
-            const { from, to } = rangeBounds(range);
+            if (planActiveTab === 'week') return renderWeekBoard();
+            return renderMonthPlan();
+        }
+
+        async function renderMonthPlan() {
+            const rep = planRepLogin();
+            const { from, to } = selectedMonthBounds();
             const tbody = document.getElementById('planBody');
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">Загрузка...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:30px;">Загрузка...</td></tr>';
             try {
                 const path = `crm_rep_plan_items?rep_login=eq.${encodeURIComponent(rep)}`
                     + `&plan_date=gte.${from}&plan_date=lte.${to}&order=plan_date.asc`;
@@ -4288,16 +4500,11 @@
                 tbody.innerHTML = rows.map(p => {
                     const planned = Number(p.planned_payment_amount) || 0;
                     const actual = Number(p.actual_payment_amount) || 0;
-                    let payBadge = '—';
-                    if (p.status === 'visited') {
-                        if (planned > 0 ? actual >= planned : actual > 0) {
-                            payBadge = '✅ выплачено';
-                        } else if (actual > 0) {
-                            payBadge = `⚠️ частично (${num(actual)}/${num(planned)})`;
-                        } else {
-                            payBadge = '❌ без оплаты';
-                        }
-                    }
+                    const paid = planItemPaid(p);
+                    let payBadge;
+                    if (paid) payBadge = '✅ выплачено';
+                    else if (actual > 0) payBadge = `⚠️ частично (${num(actual)}/${num(planned)})`;
+                    else payBadge = '❌ без оплаты';
                     return `<tr>
                     <td>${formatDate(p.plan_date)}</td>
                     <td>${escapeHtml(p.doctor_name || '')} (${escapeHtml(p.doctor_code || '—')})</td>
@@ -4308,7 +4515,10 @@
                     <td>${p.original_plan_date ? formatDate(p.original_plan_date) : '—'}</td>
                     <td>${escapeHtml(p.comment || '')}</td>
                     <td>
-                        ${p.status === 'planned' ? `<button class="btn btn-sm btn-secondary" onclick="markPlanStatus(${p.id},'cancelled')">отменить</button>` : ''}
+                        ${(p.status === 'planned' || p.status === 'carried_over' || p.status === 'missed')
+                            ? `<button class="btn btn-sm btn-secondary" onclick="openPlanMove(${p.id})">перенести</button>
+                               <button class="btn btn-sm btn-secondary" onclick="markPlanStatus(${p.id},'cancelled')">отменить</button>`
+                            : ''}
                     </td>
                 </tr>`;
                 }).join('');
@@ -4318,9 +4528,217 @@
             }
         }
 
+        const DOW_LABEL = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+        // Доска недели: колонка на каждый будний день, карточки врачей в день.
+        async function renderWeekBoard() {
+            const rep = planRepLogin();
+            const days = selectedWeekWorkdays();
+            const from = ymd(days[0]);
+            const to = ymd(days[days.length - 1]);
+            const board = document.getElementById('weekBoard');
+            board.innerHTML = '<div class="week-col-empty" style="grid-column:1/-1;">Загрузка...</div>';
+            try {
+                const rows = await sbSelect(
+                    `crm_rep_plan_items?rep_login=eq.${encodeURIComponent(rep)}`
+                    + `&plan_date=gte.${from}&plan_date=lte.${to}&status=neq.cancelled&order=id.asc`);
+
+                // Индекс фактических выплат за неделю (запасной сигнал «оплачено»).
+                const paymentsIndex = {};
+                try {
+                    const pays = await sbSelect(
+                        `crm_doctor_payments?rep_login=eq.${encodeURIComponent(rep)}`
+                        + `&payment_date=gte.${from}&payment_date=lte.${to}&select=doctor_code,payment_date,amount`);
+                    (pays || []).forEach(pay => {
+                        const k = `${pay.doctor_code}|${pay.payment_date}`;
+                        paymentsIndex[k] = (paymentsIndex[k] || 0) + (Number(pay.amount) || 0);
+                    });
+                } catch (_) {}
+
+                const byDate = {};
+                (rows || []).forEach(p => { (byDate[p.plan_date] = byDate[p.plan_date] || []).push(p); });
+
+                board.innerHTML = days.map(d => {
+                    const dStr = ymd(d);
+                    const items = byDate[dStr] || [];
+                    const cards = items.length
+                        ? items.map(p => weekCardHtml(p, paymentsIndex)).join('')
+                        : '<div class="week-col-empty">— нет визитов —</div>';
+                    return `<div class="week-col">
+                        <div class="week-col-head">
+                            <span>${formatDate(dStr)}</span>
+                            <span class="dow">${DOW_LABEL[d.getDay()]}</span>
+                        </div>
+                        <div class="week-col-body">${cards}</div>
+                    </div>`;
+                }).join('');
+            } catch (err) {
+                console.error('Ошибка загрузки доски недели:', err);
+                board.innerHTML = `<div class="week-col-empty" style="grid-column:1/-1;color:var(--error-color);">Ошибка: ${err.message}</div>`;
+            }
+        }
+
+        function weekCardHtml(p, paymentsIndex) {
+            const paid = planItemPaid(p, paymentsIndex);
+            const planned = Number(p.planned_payment_amount) || 0;
+            const statusBadge = paid
+                ? '<span class="badge badge-paid">✓ оплачено</span>'
+                : '<span class="badge badge-unpaid">✗ не оплачено</span>';
+            const amountBadge = planned > 0 ? `<span class="badge badge-amount">план ${num(planned)}</span>` : '';
+            const moveBtn = (!paid && (p.status === 'planned' || p.status === 'carried_over' || p.status === 'missed'))
+                ? `<button class="btn btn-secondary" onclick="openPlanMove(${p.id})">↪ Перенести</button>`
+                : '';
+            const cardClass = p.status === 'cancelled' ? 'cancelled' : (paid ? 'paid' : 'unpaid');
+            const orig = p.original_plan_date ? `<div class="week-card-code">исходно: ${formatDate(p.original_plan_date)}</div>` : '';
+            return `<div class="week-card ${cardClass}">
+                <div class="week-card-name">${escapeHtml(p.doctor_name || '(без имени)')}</div>
+                <div class="week-card-code">код: ${escapeHtml(p.doctor_code || '—')}</div>
+                ${orig}
+                <div class="week-card-meta">${statusBadge}${amountBadge}</div>
+                ${moveBtn ? `<div class="week-card-actions">${moveBtn}</div>` : ''}
+            </div>`;
+        }
+
+        // ---- Перенос пункта плана на другую рабочую дату ----
+        function openPlanMove(id) {
+            const modal = document.getElementById('planMoveModal');
+            document.getElementById('planMoveItemId').value = id;
+            document.getElementById('planMoveDate').value = ymd(nextWorkday(new Date()));
+            document.getElementById('planMoveInfo').textContent =
+                'Дата будет изменена. Исходная дата сохранится в пункте плана.';
+            modal.classList.add('active');
+        }
+        function hidePlanMoveForm() { document.getElementById('planMoveModal').classList.remove('active'); }
+
+        async function savePlanMove() {
+            const id = document.getElementById('planMoveItemId').value;
+            const newDate = document.getElementById('planMoveDate').value;
+            if (!id || !newDate) { showNotification('❌ Укажите новую дату', 'error'); return; }
+            if (!isWeekday(new Date(newDate + 'T00:00:00'))) {
+                showNotification('❌ Перенос возможен только на будний день', 'error'); return;
+            }
+            try {
+                const cur = await sbSelect(`crm_rep_plan_items?id=eq.${encodeURIComponent(id)}&limit=1`);
+                const item = cur && cur[0];
+                if (!item) { showNotification('❌ Пункт не найден', 'error'); return; }
+                const origDate = item.original_plan_date || item.plan_date;
+                let comment = item.comment || '';
+                const note = `перенесён с ${formatDate(item.plan_date)}`;
+                comment = comment ? `${comment} · ${note}` : note;
+                await sbPatch('crm_rep_plan_items', `id=eq.${encodeURIComponent(id)}`, {
+                    plan_date: newDate,
+                    original_plan_date: origDate,
+                    status: 'planned',
+                    comment
+                });
+                hidePlanMoveForm();
+                showNotification('✅ Визит перенесён', 'success');
+                loadPlan();
+            } catch (err) {
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+        }
+
+        // Гарантирует, что полный справочник врачей (crm_doctors) загружен —
+        // нужен для автоподстановки в плане независимо от вкладки «Врачи».
+        let crmDoctorsLoading = null;
+        async function ensureCrmDoctorsLoaded() {
+            if (crmDoctors && crmDoctors.length > 0) return crmDoctors;
+            if (crmDoctorsLoading) return crmDoctorsLoading;
+            crmDoctorsLoading = (async () => {
+                try {
+                    const docs = await sbSelect('crm_doctors?select=*&order=doctor_name.asc&limit=5000');
+                    crmDoctors = Array.isArray(docs) ? docs : [];
+                } catch (err) {
+                    console.error('Не удалось загрузить crm_doctors для автоподстановки:', err);
+                } finally {
+                    crmDoctorsLoading = null;
+                }
+                return crmDoctors;
+            })();
+            return crmDoctorsLoading;
+        }
+
+        // Источник врачей для автоподстановки: полный crm_doctors, иначе локальный seed.
+        function doctorDirectory() {
+            if (crmDoctors && crmDoctors.length > 0) {
+                return crmDoctors.map(d => ({ code: String(d.doctor_code), name: d.doctor_name || '' }));
+            }
+            return (appData.doctors || []).map(d => ({ code: String(d.code), name: d.name || '' }));
+        }
+
+        // Автоподстановка врача в форме плана:
+        //   • ввод КОДА → автозаполнение ФИО при точном совпадении;
+        //   • ввод ФАМИЛИИ/имени → выпадающий список совпадений, выбор заполняет код+ФИО.
+        let planDoctorAutocompleteReady = false;
+        function setupPlanDoctorAutocomplete() {
+            if (planDoctorAutocompleteReady) return;
+            planDoctorAutocompleteReady = true;
+            const codeInput = document.getElementById('planFormDoctorCode');
+            const nameInput = document.getElementById('planFormDoctorName');
+            const codeDrop = document.getElementById('planCodeDropdown');
+            const nameDrop = document.getElementById('planNameDropdown');
+            if (!codeInput || !nameInput) return;
+
+            const renderOptions = (dropdown, list, targetField) => {
+                if (!list.length) { dropdown.classList.remove('active'); dropdown.innerHTML = ''; return; }
+                dropdown.innerHTML = list.slice(0, 50).map(d => `
+                    <div class="doctor-option" data-code="${escapeHtml(d.code)}" data-name="${escapeHtml(d.name)}">
+                        <div>${escapeHtml(d.name || '(без имени)')}</div>
+                        <div class="doctor-code">${escapeHtml(d.code)}</div>
+                    </div>`).join('');
+                dropdown.querySelectorAll('.doctor-option').forEach(opt => {
+                    opt.addEventListener('click', () => {
+                        codeInput.value = opt.dataset.code;
+                        nameInput.value = opt.dataset.name;
+                        codeDrop.classList.remove('active');
+                        nameDrop.classList.remove('active');
+                    });
+                });
+                dropdown.classList.add('active');
+            };
+
+            // Поиск по КОДУ
+            codeInput.addEventListener('input', () => {
+                const q = codeInput.value.trim().toLowerCase();
+                if (!q) { codeDrop.classList.remove('active'); return; }
+                const dir = doctorDirectory();
+                const exact = dir.find(d => d.code.toLowerCase() === q);
+                if (exact) { nameInput.value = exact.name; }
+                const matches = dir.filter(d => d.code.toLowerCase().includes(q));
+                renderOptions(codeDrop, matches, 'code');
+            });
+            codeInput.addEventListener('focus', () => ensureCrmDoctorsLoaded());
+
+            // Поиск по ФИО / фамилии (поддержка частичной фамилии, русские имена)
+            nameInput.addEventListener('input', () => {
+                const raw = nameInput.value.trim();
+                if (!raw) { nameDrop.classList.remove('active'); return; }
+                const dir = doctorDirectory();
+                const norm = normalizeDoctorName(raw);
+                let matches = dir.filter(d => normalizeDoctorName(d.name).includes(norm));
+                if (matches.length === 0) {
+                    // мягкий запасной вариант: совпадение по первому слову (фамилия)
+                    const first = norm.split(' ')[0];
+                    if (first) matches = dir.filter(d => normalizeDoctorName(d.name).split(' ').some(w => w.startsWith(first)));
+                }
+                renderOptions(nameDrop, matches, 'name');
+            });
+            nameInput.addEventListener('focus', () => ensureCrmDoctorsLoaded());
+
+            document.addEventListener('click', (e) => {
+                if (!codeInput.contains(e.target) && !codeDrop.contains(e.target)) codeDrop.classList.remove('active');
+                if (!nameInput.contains(e.target) && !nameDrop.contains(e.target)) nameDrop.classList.remove('active');
+            });
+        }
+
         function showPlanItemForm() {
+            ensureCrmDoctorsLoaded();
+            setupPlanDoctorAutocomplete();
             document.getElementById('planFormDoctorCode').value = '';
             document.getElementById('planFormDoctorName').value = '';
+            document.getElementById('planCodeDropdown').classList.remove('active');
+            document.getElementById('planNameDropdown').classList.remove('active');
             document.getElementById('planFormDate').value = ymd(nextWorkday(new Date()));
             document.getElementById('planFormAmount').value = '0';
             document.getElementById('planFormComment').value = '';
