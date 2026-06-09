@@ -14,7 +14,11 @@ on:
         required: true
         default: "1c"
   schedule:
-    - cron: "15 23 * * *"
+    # Business users are in UTC+5. We want the scheduled sync to fire just
+    # after their local business day ends, at ~00:15 local time.
+    # 00:15 local (UTC+5) == 19:15 UTC the previous calendar day.
+    # Example: 2026-06-09 19:15 UTC == 2026-06-10 00:15 +05.
+    - cron: "15 19 * * *"
 
 jobs:
   sync:
@@ -37,8 +41,19 @@ jobs:
             echo "end=${{ inputs.end }}" >> "$GITHUB_OUTPUT"
             echo "source=${{ inputs.source }}" >> "$GITHUB_OUTPUT"
           else
-            echo "start=$(date -u +%Y-%m-01)" >> "$GITHUB_OUTPUT"
-            echo "end=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+            # Scheduled run. The cron fires at 19:15 UTC, which is 00:15 the
+            # following day in our business timezone UTC+5. We want to sync the
+            # local calendar day that just ended, i.e. the previous local day.
+            #
+            # Local "now" = UTC now + 5 hours. The day we want is one day before
+            # that local date.
+            #   Example: cron at 2026-06-09 19:15 UTC
+            #     -> local now = 2026-06-10 00:15 (+05)
+            #     -> previous local day = 2026-06-09
+            #     -> start = end = 2026-06-09
+            local_day=$(date -u -d '+5 hours -1 day' +%F)
+            echo "start=$local_day" >> "$GITHUB_OUTPUT"
+            echo "end=$local_day" >> "$GITHUB_OUTPUT"
             echo "source=all" >> "$GITHUB_OUTPUT"
           fi
 
