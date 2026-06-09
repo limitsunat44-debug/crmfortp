@@ -26,6 +26,17 @@ const ONEC_FOLDER_KEY = '37292452-0e5b-11ee-879c-d8c0a681cbca';
 const ONEC_KIND_KEY = '37292453-0e5b-11ee-879c-d8c0a681cbca';
 const ONEC_PAGE_SIZE = 1000;
 
+// --- Сетевые параметры (настраиваются через env, имеют безопасные дефолты) ---
+// Таймаут одного HTTP-запроса. 1С отдаёт большие страницы регистра медленно,
+// поэтому дефолт щедрый (120с). Можно поднять через HTTP_TIMEOUT_MS.
+const HTTP_TIMEOUT_MS = Number(process.env.HTTP_TIMEOUT_MS) || 120000;
+// Сколько раз повторять запрос при сетевой ошибке/таймауте/5xx.
+const HTTP_RETRIES = Number(process.env.HTTP_RETRIES) || 4;
+// Базовая задержка экспоненциального backoff между повторами (мс).
+const HTTP_RETRY_BASE_MS = Number(process.env.HTTP_RETRY_BASE_MS) || 1500;
+// Минимальный размер страницы 1С при адаптивном уменьшении на таймаутах.
+const ONEC_MIN_PAGE_SIZE = Number(process.env.ONEC_MIN_PAGE_SIZE) || 250;
+
 // ===========================================================================
 // Утилиты
 // ===========================================================================
@@ -170,22 +181,76 @@ function toDay(value) {
 // HTTP-обёртки
 // ===========================================================================
 
-async function fetchJson(url, options, label) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Ошибка, по которой имеет смысл повторить запрос (сеть/таймаут/5xx/429). */
+function isRetryable(err) {
+  if (err && err.retryable) return true;
+  const msg = String((err && err.message) || err || '').toLowerCase();
+  return (
+    msg.includes('terminated') ||
+    msg.includes('timeout') ||
+    msg.includes('aborted') ||
+    msg.includes('econnreset') ||
+    msg.includes('econnrefused') ||
+    msg.includes('socket hang up') ||
+    msg.includes('network') ||
+    msg.includes('fetch failed') ||
+    msg.includes('und_err')
+  );
+}
+
+/**
+ * Один HTTP-запрос с таймаутом через AbortController и разбором JSON.
+ * Бросает Error с .retryable=true для 5xx/429, чтобы вызывающий мог повторить.
+ */
+async function fetchJsonOnce(url, options, label, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res;
   try {
-    res = await fetch(url, options);
+    res = await fetch(url, { ...options, signal: controller.signal });
   } catch (e) {
-    throw new Error(`${label}: сетевая ошибка ${e.message}`);
+    const aborted = e && (e.name === 'AbortError' || controller.signal.aborted);
+    const err = new Error(
+      `${label}: ${aborted ? `таймаут ${timeoutMs}мс` : `сетевая ошибка ${e.message}`}`
+    );
+    err.retryable = true; // сеть/таймаут всегда повторяемы
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(`${label}: HTTP ${res.status} ${res.statusText} — ${text.slice(0, 300)}`);
+    const err = new Error(`${label}: HTTP ${res.status} ${res.statusText} — ${text.slice(0, 300)}`);
+    if (res.status >= 500 || res.status === 429) err.retryable = true;
+    throw err;
   }
   try {
     return text ? JSON.parse(text) : null;
   } catch (e) {
     throw new Error(`${label}: невалидный JSON — ${text.slice(0, 300)}`);
   }
+}
+
+/**
+ * fetchJson с таймаутом и экспоненциальным backoff по повторяемым ошибкам.
+ * timeoutMs/retries можно переопределить per-call (для тяжёлых страниц 1С).
+ */
+async function fetchJson(url, options, label, { timeoutMs = HTTP_TIMEOUT_MS, retries = HTTP_RETRIES } = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fetchJsonOnce(url, options, label, timeoutMs);
+    } catch (e) {
+      lastErr = e;
+      if (attempt >= retries || !isRetryable(e)) throw e;
+      const backoff = HTTP_RETRY_BASE_MS * 2 ** attempt + Math.floor(Math.random() * 500);
+      warn(`${label}: попытка ${attempt + 1}/${retries + 1} не удалась (${e.message}); повтор через ${backoff}мс`);
+      await sleep(backoff);
+    }
+  }
+  throw lastErr;
 }
 
 // ===========================================================================
@@ -204,34 +269,66 @@ function onecBaseUrl() {
 }
 
 /**
- * Постраничная выгрузка сущности OData через $top/$skip.
- * $filter по Period/Description/Parent_Key в этой базе падает,
- * поэтому фильтрация делается в коде.
+ * Постраничная выгрузка сущности OData через $top/$skip с устойчивостью к
+ * медленным/обрывающимся страницам большого регистра.
+ *
+ * $filter по Period/Description/Parent_Key в этой базе исторически падает,
+ * поэтому фильтрация по-прежнему делается в коде (см. onecFetchSales).
+ *
+ * Особенности:
+ *   • таймаут+ретраи на уровне fetchJson;
+ *   • адаптивное уменьшение размера страницы, если страница стабильно
+ *     обрывается по таймауту (1С отдаёт большие top медленно) — это часто
+ *     помогает, когда фиксированный $top=1000 не успевает отдаться;
+ *   • опциональный onPage(batch, skip) — позволяет потоково обрабатывать/
+ *     сохранять страницы, не теряя уже выгруженное при поздней ошибке.
  */
-async function onecFetchAll(entity, select) {
+async function onecFetchAll(entity, select, onPage, rawFilter) {
   const base = onecBaseUrl();
   const auth = onecAuthHeader();
   const rows = [];
   let skip = 0;
+  let pageSize = ONEC_PAGE_SIZE;
   for (;;) {
     const params = new URLSearchParams({
       $format: 'json',
-      $top: String(ONEC_PAGE_SIZE),
+      $top: String(pageSize),
       $skip: String(skip),
     });
     if (select) params.set('$select', select);
-    const url = `${base}/${entity}?${params.toString()}`;
-    const data = await fetchJson(
-      url,
-      { headers: { Authorization: auth, Accept: 'application/json' } },
-      `1С ${entity} (skip=${skip})`
-    );
+    // rawFilter — уже собранное выражение OData ($filter=...), добавляем как
+    // есть, чтобы не ломать кодировку datetime'...' двойным энкодингом.
+    const extra = rawFilter ? `&${rawFilter}` : '';
+    const url = `${base}/${entity}?${params.toString()}${extra}`;
+
+    let data;
+    try {
+      data = await fetchJson(
+        url,
+        { headers: { Authorization: auth, Accept: 'application/json' } },
+        `1С ${entity} (skip=${skip}, top=${pageSize})`
+      );
+    } catch (e) {
+      // Если страница не вытягивается, а размер ещё можно уменьшить — пробуем
+      // меньший $top с того же skip. Это спасает выгрузки, где большой top
+      // стабильно обрывается ("terminated") около середины регистра.
+      if (isRetryable(e) && pageSize > ONEC_MIN_PAGE_SIZE) {
+        const next = Math.max(ONEC_MIN_PAGE_SIZE, Math.floor(pageSize / 2));
+        warn(`1С ${entity}: страница top=${pageSize} не отдалась (${e.message}); уменьшаю top до ${next} и повторяю с skip=${skip}`);
+        pageSize = next;
+        continue;
+      }
+      throw e;
+    }
+
     const batch = (data && data.value) || [];
     rows.push(...batch);
-    log(`1С ${entity}: получено ${batch.length}, всего ${rows.length}`);
-    if (batch.length < ONEC_PAGE_SIZE) break;
-    skip += ONEC_PAGE_SIZE;
+    if (onPage) await onPage(batch, skip);
+    log(`1С ${entity}: получено ${batch.length} (skip=${skip}, top=${pageSize}), всего ${rows.length}`);
+    if (batch.length < pageSize) break;
+    skip += batch.length;
   }
+  log(`1С ${entity}: выгрузка завершена, всего строк ${rows.length}`);
   return rows;
 }
 
@@ -268,15 +365,51 @@ async function onecFetchDoctors() {
  * checks_count = count(distinct Recorder) (fallback: count строк).
  * Учитываются только Active === true.
  */
+const ONEC_SALES_ENTITY = 'AccumulationRegister_ПродажиПоДисконтнымКартам_RecordType';
+
+/**
+ * Пытается выгрузить регистр продаж с СЕРВЕРНЫМ фильтром по Period.
+ * В этой базе $filter исторически нестабилен, поэтому это best-effort:
+ * при ЛЮБОЙ ошибке (включая HTTP-ошибку 1С на неподдерживаемый $filter)
+ * возвращаем null, и вызывающий откатывается на полную выгрузку + локальную
+ * фильтрацию. Серверный фильтр, когда он работает, резко уменьшает объём
+ * (одна дата вместо всего регистра) и устраняет обрывы около 4k строк.
+ */
+async function onecTryFetchSalesFiltered(from, to) {
+  const filter = `Period ge datetime'${from}' and Period le datetime'${to}'`;
+  try {
+    const rows = await onecFetchAll(
+      ONEC_SALES_ENTITY,
+      null,
+      null,
+      `$filter=${encodeURIComponent(filter)}`
+    );
+    log(`1С: серверный $filter по Period сработал, строк ${rows.length}`);
+    return rows;
+  } catch (e) {
+    warn(`1С: серверный $filter по Period не поддерживается/не сработал (${e.message}); откат на полную выгрузку с локальной фильтрацией`);
+    return null;
+  }
+}
+
 async function onecFetchSales(start, end) {
   const { from, to } = odataPeriodBounds(start, end);
-  const rows = await onecFetchAll('AccumulationRegister_ПродажиПоДисконтнымКартам_RecordType');
+  // Сначала пробуем серверный фильтр (дёшево и быстро), затем — полный обход.
+  let rows = await onecTryFetchSalesFiltered(from, to);
+  let serverFiltered = rows != null;
+  if (!serverFiltered) {
+    rows = await onecFetchAll(ONEC_SALES_ENTITY);
+  }
 
   // key `${ref}|${day}` -> {ref, day, amount, quantity, recorders:Set, rowCount}
   const agg = new Map();
+  let inPeriodCount = 0;
   for (const r of rows) {
     if (r.Active !== true) continue;
+    // Период всё равно проверяем локально: даже при серверном фильтре граница
+    // может отличаться, а при полной выгрузке это обязательная отсечка.
     if (!inPeriod(r.Period, from, to)) continue;
+    inPeriodCount += 1;
     const ref = r.ДисконтнаяКарта_Key;
     if (!ref) continue;
     const day = toDay(r.Period);
@@ -292,16 +425,20 @@ async function onecFetchSales(start, end) {
     a.rowCount += 1;
     if (r.Recorder) a.recorders.add(String(r.Recorder));
   }
-  log(`1С: агрегировано продаж по картам×дням: ${agg.size}`);
+  log(
+    `1С: продажи (${serverFiltered ? 'серверный фильтр' : 'полная выгрузка'}): ` +
+      `строк всего ${rows.length}, в периоде ${inPeriodCount}, агрегатов карта×день ${agg.size}`
+  );
   return agg;
 }
 
 async function syncOneC(crm, start, end) {
   log('=== 1С: старт ===');
   const doctors = await onecFetchDoctors();
-  const sales = await onecFetchSales(start, end);
 
-  // Справочник врачей
+  // Справочник врачей пишем СРАЗУ, до выгрузки продаж. Так даже если тяжёлая
+  // выгрузка регистра продаж оборвётся, обновлённый справочник уже сохранён
+  // и не теряется (раньше при ошибке продаж в CRM не попадало вообще ничего).
   const doctorRows = [...doctors.values()].map((d) => ({
     doctor_code: d.doctor_code,
     doctor_name: d.doctor_name,
@@ -315,6 +452,8 @@ async function syncOneC(crm, start, end) {
   if (doctorRows.length) {
     await crm.upsert('crm_doctors', doctorRows, 'doctor_code');
   }
+
+  const sales = await onecFetchSales(start, end);
 
   // Кэш продаж: одна строка на врача×день (period_start=period_end=sale_date=day).
   // День-уровневые строки позволяют фронту суммировать любой диапазон дат.
@@ -793,10 +932,13 @@ async function main() {
 
   let rowsWritten = 0;
   const errors = [];
+  const perSource = {};
 
   if (source === 'all' || source === '1c') {
     try {
-      rowsWritten += await syncOneC(crm, start, end);
+      const n = await syncOneC(crm, start, end);
+      perSource['1c'] = n;
+      rowsWritten += n;
     } catch (e) {
       errors.push(`1С: ${e.message}`);
       warn(`Источник 1С завершился с ошибкой: ${e.message}`);
@@ -805,7 +947,9 @@ async function main() {
 
   if (source === 'all' || source === 'docsales') {
     try {
-      rowsWritten += await syncDocSales(crm, start, end);
+      const n = await syncDocSales(crm, start, end);
+      perSource.docsales = n;
+      rowsWritten += n;
     } catch (e) {
       errors.push(`DocSales: ${e.message}`);
       warn(`Источник DocSales завершился с ошибкой: ${e.message}`);
@@ -815,9 +959,18 @@ async function main() {
   const status = errors.length === 0 ? 'ok' : 'partial';
   await finishRun(crm, runId, status, rowsWritten, errors.join(' | '));
 
-  log(`Готово. Статус=${status}, записано строк=${rowsWritten}.`);
+  // Явно логируем, что именно записано по каждому источнику — чтобы partial
+  // не выглядел как «ничего не записано»: успешные источники уже в CRM и видны
+  // во фронте, даже если другой источник упал.
+  const written = Object.entries(perSource)
+    .map(([s, n]) => `${s}=${n}`)
+    .join(', ') || 'нет';
+  log(`Готово. Статус=${status}, записано строк=${rowsWritten} (по источникам: ${written}).`);
   if (errors.length) {
-    warn(`Завершено с ошибками источников:\n - ${errors.join('\n - ')}`);
+    warn(`Завершено с ошибками источников (успешные источники уже сохранены в CRM):\n - ${errors.join('\n - ')}`);
+    // Exit code 2 сигнализирует Action о partial-результате (чтобы запуск был
+    // помечен как неуспешный и попал в уведомления), но это НЕ откатывает уже
+    // записанные строки успешных источников — они остаются видны во фронте.
     process.exit(2);
   }
 }
