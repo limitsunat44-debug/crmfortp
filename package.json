@@ -12,6 +12,7 @@
     "sync:1c": "node scripts/sync-sales.js --source=1c",
     "sync:docsales": "node scripts/sync-sales.js --source=docsales",
     "check": "node --check scripts/sync-sales.js",
-    "test": "node scripts/sales-recon.test.js"
+    "test:doctor": "node scripts/doctor-match.test.js",
+    "test": "node scripts/sales-recon.test.js && node scripts/doctor-match.test.js"
   }
 }

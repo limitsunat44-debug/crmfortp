@@ -988,6 +988,17 @@
             font-size: var(--font-size-sm);
         }
 
+        .doctor-warning {
+            margin-top: 8px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: #fff4e5;
+            border: 1px solid #ffd8a8;
+            color: #8a5a00;
+            font-size: var(--font-size-sm);
+            line-height: 1.35;
+        }
+
         /* ===== Вкладки внутри страницы Плана ===== */
         .plan-tabs {
             display: flex;
@@ -1891,9 +1902,15 @@
                         <div class="doctor-selector">
                             <div class="doctor-search">
                                 <input type="text" class="form-control" id="doctorSearch"
-                                       placeholder="🔍 Найти врача..." required autocomplete="off">
+                                       placeholder="🔍 Код врача — ФИО подставится" autocomplete="off">
                                 <div class="doctor-dropdown" id="doctorDropdown"></div>
                             </div>
+                            <div class="doctor-search" style="margin-top: 8px;">
+                                <input type="text" class="form-control" id="visitDoctorName"
+                                       placeholder="Или введите фамилию — выберите врача" autocomplete="off">
+                                <div class="doctor-dropdown" id="visitDoctorNameDropdown"></div>
+                            </div>
+                            <div id="visitDoctorWarning" class="doctor-warning" style="display:none;"></div>
                             <button type="button" class="btn btn-secondary" style="margin-top: 8px;" onclick="showAddDoctorForm()">+ Добавить нового врача</button>
                         </div>
                         <input type="hidden" id="selectedDoctorId">
@@ -2137,7 +2154,6 @@
             document.getElementById('searchInput').addEventListener('input', filterVisits);
             document.getElementById('periodFilter').addEventListener('change', filterVisits);
 
-            setupDoctorSearch();
             setupStatusToggle();
 
             document.addEventListener('click', function(e) {
@@ -3432,6 +3448,10 @@
             const form = document.getElementById('visitForm');
             const title = document.getElementById('modalTitle');
 
+            // Гарантируем загрузку справочника и привязку автоподстановки до показа.
+            ensureCrmDoctorsLoaded().then(() => updateVisitDoctorWarning({ failed: crmDoctorsLoadFailed }));
+            setupDoctorSearch();
+
             if (visitId) {
                 const visit = appData.visits.find(v => v.id === visitId);
                 if (visit) {
@@ -3443,6 +3463,8 @@
                 form.reset();
                 document.getElementById('visitId').value = '';
                 document.getElementById('selectedDoctorId').value = '';
+                const nameField = document.getElementById('visitDoctorName');
+                if (nameField) nameField.value = '';
                 selectedDoctor = null;
                 const now = new Date();
                 now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -3466,11 +3488,14 @@
         function fillVisitForm(visit) {
             document.getElementById('visitId').value = visit.id;
             document.getElementById('selectedDoctorId').value = visit.doctorId;
-            const doctor = appData.doctors.find(d => d.code === visit.doctorId);
-            if (doctor) {
-                document.getElementById('doctorSearch').value = `${doctor.name} (${doctor.code})`;
-                selectedDoctor = doctor;
-            }
+            // Имя берём из справочника (crm_doctors), затем из seed, затем из самого визита.
+            const dir = doctorDirectory();
+            const fromDir = dir.find(d => String(d.code) === String(visit.doctorId));
+            const name = fromDir ? fromDir.name : (visit.doctorName || '');
+            selectedDoctor = { code: String(visit.doctorId), name };
+            document.getElementById('doctorSearch').value = String(visit.doctorId);
+            const nameField = document.getElementById('visitDoctorName');
+            if (nameField) nameField.value = name;
             document.getElementById('visitTime').value = visit.visitTime;
             document.getElementById('clinicName').value = visit.clinic;
             document.getElementById('amount').value = visit.amount;
@@ -3517,7 +3542,25 @@
         async function saveVisit() {
             const form = document.getElementById('visitForm');
             if (!form.checkValidity()) { form.reportValidity(); return; }
-            if (!selectedDoctor) { showNotification('❌ Выберите врача', 'error'); return; }
+
+            // Каноникализация выбранного врача: если код введён вручную и совпадает
+            // с справочником — берём оттуда код+ФИО, даже если onSelect не сработал.
+            const codeRaw = (document.getElementById('doctorSearch').value || '').trim();
+            const dir = doctorDirectory();
+            if (codeRaw) {
+                const exact = dir.find(d => String(d.code).toLowerCase() === codeRaw.toLowerCase());
+                if (exact) {
+                    selectedDoctor = { code: String(exact.code), name: exact.name || '' };
+                    document.getElementById('selectedDoctorId').value = selectedDoctor.code;
+                }
+            }
+            // Если выбор есть, но имя пустое — дотягиваем из справочника.
+            if (selectedDoctor && !selectedDoctor.name) {
+                const byCode = dir.find(d => String(d.code) === String(selectedDoctor.code));
+                if (byCode) selectedDoctor.name = byCode.name || '';
+            }
+
+            if (!selectedDoctor || !selectedDoctor.code) { showNotification('❌ Выберите врача', 'error'); return; }
             if (!document.getElementById('satisfactionStatus').value) {
                 showNotification('❌ Укажите статус удовлетворенности', 'error'); return;
             }
@@ -3722,60 +3765,50 @@
             await saveData();
             hideAddDoctorForm();
             selectedDoctor = newDoctor;
-            document.getElementById('doctorSearch').value = `${name} (${code})`;
+            document.getElementById('doctorSearch').value = code;
+            const nameField = document.getElementById('visitDoctorName');
+            if (nameField) nameField.value = name;
             document.getElementById('selectedDoctorId').value = code;
             showNotification('✅ Врач добавлен', 'success');
         }
 
-        function setupDoctorSearch() {
-            const searchInput = document.getElementById('doctorSearch');
-            const dropdown = document.getElementById('doctorDropdown');
-
-            searchInput.addEventListener('input', function() {
-                const query = this.value.toLowerCase().trim();
-                if (!query) { dropdown.classList.remove('active'); selectedDoctor = null; document.getElementById('selectedDoctorId').value = ''; return; }
-                const filtered = appData.doctors.filter(d =>
-                    d.name.toLowerCase().includes(query) || d.code.toLowerCase().includes(query)
-                );
-                if (filtered.length > 0) { renderDoctorOptions(filtered); dropdown.classList.add('active'); }
-                else dropdown.classList.remove('active');
-            });
-
-            searchInput.addEventListener('focus', function() {
-                if (this.value.length > 0) {
-                    const query = this.value.toLowerCase().trim();
-                    const filtered = appData.doctors.filter(d =>
-                        d.name.toLowerCase().includes(query) || d.code.toLowerCase().includes(query)
-                    );
-                    if (filtered.length > 0) { renderDoctorOptions(filtered); dropdown.classList.add('active'); }
-                }
-            });
-
-            document.addEventListener('click', function(e) {
-                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
-                    dropdown.classList.remove('active');
-                }
-            });
-        }
-
-        function renderDoctorOptions(doctors) {
-            const dropdown = document.getElementById('doctorDropdown');
-            dropdown.innerHTML = doctors.map(doctor => `
-                <div class="doctor-option" onclick="selectDoctor('${doctor.code}')">
-                    <div>${doctor.name}</div>
-                    <div class="doctor-code">${doctor.code}</div>
-                </div>
-            `).join('');
-        }
-
-        function selectDoctor(code) {
-            const doctor = appData.doctors.find(d => d.code === code);
-            if (doctor) {
-                selectedDoctor = doctor;
-                document.getElementById('doctorSearch').value = `${doctor.name} (${doctor.code})`;
-                document.getElementById('selectedDoctorId').value = doctor.code;
-                document.getElementById('doctorDropdown').classList.remove('active');
+        // Сообщение в модалке визита, если справочник врачей не подгрузился.
+        function updateVisitDoctorWarning(state) {
+            const el = document.getElementById('visitDoctorWarning');
+            if (!el) return;
+            if (state && state.failed) {
+                el.textContent = '⚠️ Не удалось загрузить список врачей. Проверьте интернет/доступ к базе и обновите страницу, либо добавьте врача вручную.';
+                el.style.display = 'block';
+            } else {
+                el.style.display = 'none';
             }
+        }
+
+        let visitDoctorAutocompleteReady = false;
+        function setupDoctorSearch() {
+            if (visitDoctorAutocompleteReady) return;
+            const codeInput = document.getElementById('doctorSearch');
+            const nameInput = document.getElementById('visitDoctorName');
+            const codeDrop = document.getElementById('doctorDropdown');
+            const nameDrop = document.getElementById('visitDoctorNameDropdown');
+            if (!codeInput) return;
+            visitDoctorAutocompleteReady = true;
+            bindDoctorAutocomplete({
+                codeInput, nameInput, codeDropdown: codeDrop, nameDropdown: nameDrop,
+                onSelect: (doctor) => {
+                    selectedDoctor = { code: String(doctor.code), name: doctor.name || '' };
+                    document.getElementById('selectedDoctorId').value = selectedDoctor.code;
+                },
+                onLoad: updateVisitDoctorWarning
+            });
+
+            // Очистка выбора, если поле кода полностью стёрли.
+            codeInput.addEventListener('input', () => {
+                if (!codeInput.value.trim()) {
+                    selectedDoctor = null;
+                    document.getElementById('selectedDoctorId').value = '';
+                }
+            });
         }
 
         function setupStatusToggle() {
@@ -4675,6 +4708,7 @@
         // Гарантирует, что полный справочник врачей (crm_doctors) загружен —
         // нужен для автоподстановки в плане независимо от вкладки «Врачи».
         let crmDoctorsLoading = null;
+        let crmDoctorsLoadFailed = false;   // true, если последняя загрузка справочника упала
         async function ensureCrmDoctorsLoaded() {
             if (crmDoctors && crmDoctors.length > 0) return crmDoctors;
             if (crmDoctorsLoading) return crmDoctorsLoading;
@@ -4682,7 +4716,9 @@
                 try {
                     const docs = await sbSelect('crm_doctors?select=*&order=doctor_name.asc&limit=5000');
                     crmDoctors = Array.isArray(docs) ? docs : [];
+                    crmDoctorsLoadFailed = false;
                 } catch (err) {
+                    crmDoctorsLoadFailed = true;
                     console.error('Не удалось загрузить crm_doctors для автоподстановки:', err);
                 } finally {
                     crmDoctorsLoading = null;
@@ -4700,68 +4736,120 @@
             return (appData.doctors || []).map(d => ({ code: String(d.code), name: d.name || '' }));
         }
 
+        // Чистое сопоставление врачей (без DOM) — используется и в плане, и в визите,
+        // и покрыто юнит-тестами. mode='code' ищет по коду, mode='name' — по ФИО с
+        // нормализацией (русские имена, ё/е) и мягким запасным поиском по фамилии.
+        // Возвращает { matches: [...], exact: <точное совпадение по коду|null> }.
+        function matchDoctors(directory, query, mode) {
+            const dir = Array.isArray(directory) ? directory : [];
+            const raw = (query == null ? '' : String(query)).trim();
+            if (!raw) return { matches: [], exact: null };
+            if (mode === 'code') {
+                const q = raw.toLowerCase();
+                const exact = dir.find(d => String(d.code).toLowerCase() === q) || null;
+                const matches = dir.filter(d => String(d.code).toLowerCase().includes(q));
+                return { matches, exact };
+            }
+            // mode === 'name'
+            const norm = normalizeDoctorName(raw);
+            let matches = dir.filter(d => normalizeDoctorName(d.name).includes(norm));
+            if (matches.length === 0) {
+                const first = norm.split(' ')[0];
+                if (first) {
+                    matches = dir.filter(d =>
+                        normalizeDoctorName(d.name).split(' ').some(w => w.startsWith(first)));
+                }
+            }
+            return { matches, exact: null };
+        }
+
+        // Универсальный связыватель автоподстановки врача для модалок (план и визит).
+        // cfg: { codeInput, nameInput, codeDropdown, nameDropdown, onSelect(doctor) }
+        // Любая из пар (code*/name*) необязательна — биндер вешает обработчики
+        // только на присутствующие поля. Загружает справочник лениво при фокусе.
+        function bindDoctorAutocomplete(cfg) {
+            const codeInput = cfg.codeInput || null;
+            const nameInput = cfg.nameInput || null;
+            const codeDrop = cfg.codeDropdown || null;
+            const nameDrop = cfg.nameDropdown || null;
+            const onSelect = typeof cfg.onSelect === 'function' ? cfg.onSelect : function () {};
+            const onLoad = typeof cfg.onLoad === 'function' ? cfg.onLoad : null;
+
+            const closeAll = () => {
+                if (codeDrop) codeDrop.classList.remove('active');
+                if (nameDrop) nameDrop.classList.remove('active');
+            };
+
+            const renderOptions = (dropdown, list) => {
+                if (!dropdown) return;
+                if (!list.length) { dropdown.classList.remove('active'); dropdown.innerHTML = ''; return; }
+                dropdown.innerHTML = list.slice(0, 50).map(d => `
+                    <div class="doctor-option" data-code="${escapeHtml(String(d.code))}" data-name="${escapeHtml(d.name || '')}">
+                        <div>${escapeHtml(d.name || '(без имени)')}</div>
+                        <div class="doctor-code">${escapeHtml(String(d.code))}</div>
+                    </div>`).join('');
+                dropdown.querySelectorAll('.doctor-option').forEach(opt => {
+                    opt.addEventListener('click', () => {
+                        const doctor = { code: opt.dataset.code, name: opt.dataset.name };
+                        if (codeInput) codeInput.value = doctor.code;
+                        if (nameInput) nameInput.value = doctor.name;
+                        closeAll();
+                        onSelect(doctor);
+                    });
+                });
+                dropdown.classList.add('active');
+            };
+
+            const ensureLoaded = async () => {
+                await ensureCrmDoctorsLoaded();
+                if (onLoad) onLoad({ failed: crmDoctorsLoadFailed, count: (crmDoctors || []).length });
+            };
+
+            if (codeInput && codeDrop) {
+                codeInput.addEventListener('input', () => {
+                    const dir = doctorDirectory();
+                    const { matches, exact } = matchDoctors(dir, codeInput.value, 'code');
+                    if (exact) {
+                        if (nameInput) nameInput.value = exact.name;
+                        onSelect({ code: exact.code, name: exact.name });
+                    }
+                    renderOptions(codeDrop, matches);
+                });
+                codeInput.addEventListener('focus', ensureLoaded);
+            }
+
+            if (nameInput && nameDrop) {
+                nameInput.addEventListener('input', () => {
+                    const dir = doctorDirectory();
+                    const { matches } = matchDoctors(dir, nameInput.value, 'name');
+                    renderOptions(nameDrop, matches);
+                });
+                nameInput.addEventListener('focus', ensureLoaded);
+            }
+
+            document.addEventListener('click', (e) => {
+                if (codeInput && codeDrop && !codeInput.contains(e.target) && !codeDrop.contains(e.target)) codeDrop.classList.remove('active');
+                if (nameInput && nameDrop && !nameInput.contains(e.target) && !nameDrop.contains(e.target)) nameDrop.classList.remove('active');
+            });
+
+            // первичная подгрузка справочника, чтобы предупреждение появилось сразу
+            ensureLoaded();
+        }
+
         // Автоподстановка врача в форме плана:
         //   • ввод КОДА → автозаполнение ФИО при точном совпадении;
         //   • ввод ФАМИЛИИ/имени → выпадающий список совпадений, выбор заполняет код+ФИО.
         let planDoctorAutocompleteReady = false;
         function setupPlanDoctorAutocomplete() {
             if (planDoctorAutocompleteReady) return;
-            planDoctorAutocompleteReady = true;
             const codeInput = document.getElementById('planFormDoctorCode');
             const nameInput = document.getElementById('planFormDoctorName');
             const codeDrop = document.getElementById('planCodeDropdown');
             const nameDrop = document.getElementById('planNameDropdown');
             if (!codeInput || !nameInput) return;
-
-            const renderOptions = (dropdown, list, targetField) => {
-                if (!list.length) { dropdown.classList.remove('active'); dropdown.innerHTML = ''; return; }
-                dropdown.innerHTML = list.slice(0, 50).map(d => `
-                    <div class="doctor-option" data-code="${escapeHtml(d.code)}" data-name="${escapeHtml(d.name)}">
-                        <div>${escapeHtml(d.name || '(без имени)')}</div>
-                        <div class="doctor-code">${escapeHtml(d.code)}</div>
-                    </div>`).join('');
-                dropdown.querySelectorAll('.doctor-option').forEach(opt => {
-                    opt.addEventListener('click', () => {
-                        codeInput.value = opt.dataset.code;
-                        nameInput.value = opt.dataset.name;
-                        codeDrop.classList.remove('active');
-                        nameDrop.classList.remove('active');
-                    });
-                });
-                dropdown.classList.add('active');
-            };
-
-            // Поиск по КОДУ
-            codeInput.addEventListener('input', () => {
-                const q = codeInput.value.trim().toLowerCase();
-                if (!q) { codeDrop.classList.remove('active'); return; }
-                const dir = doctorDirectory();
-                const exact = dir.find(d => d.code.toLowerCase() === q);
-                if (exact) { nameInput.value = exact.name; }
-                const matches = dir.filter(d => d.code.toLowerCase().includes(q));
-                renderOptions(codeDrop, matches, 'code');
-            });
-            codeInput.addEventListener('focus', () => ensureCrmDoctorsLoaded());
-
-            // Поиск по ФИО / фамилии (поддержка частичной фамилии, русские имена)
-            nameInput.addEventListener('input', () => {
-                const raw = nameInput.value.trim();
-                if (!raw) { nameDrop.classList.remove('active'); return; }
-                const dir = doctorDirectory();
-                const norm = normalizeDoctorName(raw);
-                let matches = dir.filter(d => normalizeDoctorName(d.name).includes(norm));
-                if (matches.length === 0) {
-                    // мягкий запасной вариант: совпадение по первому слову (фамилия)
-                    const first = norm.split(' ')[0];
-                    if (first) matches = dir.filter(d => normalizeDoctorName(d.name).split(' ').some(w => w.startsWith(first)));
-                }
-                renderOptions(nameDrop, matches, 'name');
-            });
-            nameInput.addEventListener('focus', () => ensureCrmDoctorsLoaded());
-
-            document.addEventListener('click', (e) => {
-                if (!codeInput.contains(e.target) && !codeDrop.contains(e.target)) codeDrop.classList.remove('active');
-                if (!nameInput.contains(e.target) && !nameDrop.contains(e.target)) nameDrop.classList.remove('active');
+            planDoctorAutocompleteReady = true;
+            bindDoctorAutocomplete({
+                codeInput, nameInput, codeDropdown: codeDrop, nameDropdown: nameDrop
             });
         }
 
