@@ -3291,7 +3291,8 @@
                         <div class="visits-grid">`;
 
                 dateGroup.visits.forEach(visit => {
-                    const doctor = appData.doctors.find(d => d.code === visit.doctorId);
+                    const doctor = doctorDirectory().find(d => String(d.code) === String(visit.doctorId));
+                    const doctorLabel = (doctor && doctor.name) ? doctor.name : (visit.doctorName || 'Неизвестный врач');
                     const canEdit = currentUser.role === 'admin';
 
                     if (isCompactView) {
@@ -3299,7 +3300,7 @@
                             <div class="visit-card compact">
                                 <div class="visit-header">
                                     <div>
-                                        <h3>${doctor ? doctor.name : 'Неизвестный врач'}</h3>
+                                        <h3>${escapeHtml(doctorLabel)}</h3>
                                         <small>Код: ${visit.doctorId}</small>
                                     </div>
                                     <div class="status-badge ${visit.satisfaction}">
@@ -3326,7 +3327,7 @@
                             <div class="visit-card">
                                 <div class="visit-header">
                                     <div>
-                                        <h3>${doctor ? doctor.name : 'Неизвестный врач'}</h3>
+                                        <h3>${escapeHtml(doctorLabel)}</h3>
                                         <small>Код: ${visit.doctorId}</small>
                                     </div>
                                     <div class="status-badge ${visit.satisfaction}">
@@ -3389,10 +3390,11 @@
             const searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
             if (searchQuery) {
                 visits = visits.filter(visit => {
-                    const doctor = appData.doctors.find(d => d.code === visit.doctorId);
-                    const doctorName = doctor ? doctor.name.toLowerCase() : '';
-                    const clinic = visit.clinic.toLowerCase();
-                    return doctorName.includes(searchQuery) || clinic.includes(searchQuery);
+                    const doctor = doctorDirectory().find(d => String(d.code) === String(visit.doctorId));
+                    const doctorName = ((doctor && doctor.name) ? doctor.name : (visit.doctorName || '')).toLowerCase();
+                    const clinic = (visit.clinic || '').toLowerCase();
+                    const code = String(visit.doctorId || '').toLowerCase();
+                    return doctorName.includes(searchQuery) || clinic.includes(searchQuery) || code.includes(searchQuery);
                 });
             }
 
