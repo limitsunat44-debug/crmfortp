@@ -524,28 +524,47 @@ async function crmFetchDoctorsByName(crm) {
  * Источник docsales2 (visits + visit_items + doctors).
  * Возвращает Map doctor_code -> {name, amount, checks:Set, sources:Set}.
  * При несовпадении схемы логирует и возвращает пустую Map, НЕ падает.
+ *
+ * СХЕМА docsales2 (актуальная, приложение docsales2.vercel.app):
+ *   visits:      { id, patient_id, salon_id, doctor_id (int FK -> doctors.id),
+ *                  diagnosis_id, comment, status, visit_at (timestamptz),
+ *                  completed_at, created_by }  — суммы в visits НЕТ.
+ *   visit_items: { id, visit_id (FK -> visits.id), name, amount (float) }
+ *                  — реальная сумма визита = SUM(visit_items.amount).
+ *   doctors:     { id, name, ... }
+ *
+ * Историческое отличие: раньше дата бралась из visit_date/created_at, а сумма из
+ * visits.total. После перехода docsales2 на новую схему дата хранится в visit_at,
+ * а сумма — только в visit_items.amount. Ниже поддержаны ОБЕ схемы, но приоритет
+ * у актуальной (visit_at + visit_items).
  */
 async function aggregateDocSalesVisits(ds, start, end) {
   const agg = new Map();
 
+  // Дата визита. Актуальная схема — visit_at (timestamptz). Фильтруем по
+  // полной границе суток, чтобы не терять визиты с временем в течение
+  // последнего дня периода. Последовательно пробуем поля даты; при ошибке
+  // (поля нет / фильтр не поддержан) переходим к следующему кандидату.
+  const dateFields = ['visit_at', 'visit_date', 'completed_at', 'created_at'];
   let visits = [];
-  try {
-    visits = await ds.select('visits', {
-      select: '*',
-      filter: `visit_date=gte.${start}&visit_date=lte.${end}`,
-    });
-  } catch (e) {
-    warn(`DocSales(visits): фильтр по visit_date не сработал (${e.message}), пробую created_at`);
+  let usedDateField = null;
+  for (const field of dateFields) {
     try {
       visits = await ds.select('visits', {
         select: '*',
-        filter: `created_at=gte.${start}T00:00:00&created_at=lte.${end}T23:59:59`,
+        filter: `${field}=gte.${start}T00:00:00&${field}=lte.${end}T23:59:59`,
       });
-    } catch (e2) {
-      warn(`DocSales(visits): не удалось прочитать visits (${e2.message}). Пропускаю источник.`);
-      return agg;
+      usedDateField = field;
+      break;
+    } catch (e) {
+      warn(`DocSales(visits): фильтр по ${field} не сработал (${e.message}), пробую следующее поле даты`);
     }
   }
+  if (usedDateField == null) {
+    warn('DocSales(visits): не удалось прочитать visits ни по одному полю даты. Пропускаю источник.');
+    return agg;
+  }
+  log(`DocSales(visits): визиты отфильтрованы по полю ${usedDateField}, строк ${Array.isArray(visits) ? visits.length : 0}`);
 
   if (!Array.isArray(visits) || visits.length === 0) {
     log('DocSales(visits): визитов за период не найдено.');
@@ -567,18 +586,33 @@ async function aggregateDocSalesVisits(ds, start, end) {
     warn(`DocSales(visits): таблица doctors недоступна (${e.message}), беру коды из visits.`);
   }
 
-  // Позиции визитов (сумма) — если таблица visit_items есть.
+  // Позиции визитов (сумма). В актуальной схеме сумма визита = SUM(amount)
+  // по visit_items. Читаем позиции ТОЛЬКО за нужные визиты (фильтр по visit_id
+  // in.(...)), чтобы не тянуть всю таблицу и не смешивать чужие периоды.
+  // Ключи Map — строковые (id из PostgREST может прийти числом или строкой).
   const amountByVisit = new Map();
+  const visitIds = visits.map((v) => v.id).filter((id) => id != null);
   try {
-    const items = await ds.select('visit_items', { select: '*' });
-    for (const it of items) {
-      const vid = String(it.visit_id);
-      amountByVisit.set(vid, (amountByVisit.get(vid) || 0) + toNumber(it.amount));
+    // PostgREST in.(...) — разбиваем на чанки, чтобы не упереться в длину URL.
+    const chunkSize = 200;
+    for (let i = 0; i < visitIds.length; i += chunkSize) {
+      const chunk = visitIds.slice(i, i + chunkSize);
+      const inList = chunk.map((id) => String(id)).join(',');
+      const items = await ds.select('visit_items', {
+        select: 'visit_id,amount',
+        filter: `visit_id=in.(${inList})`,
+      });
+      for (const it of items || []) {
+        const vid = String(it.visit_id);
+        amountByVisit.set(vid, (amountByVisit.get(vid) || 0) + toNumber(it.amount));
+      }
     }
+    log(`DocSales(visits): суммы по visit_items собраны для ${amountByVisit.size} визитов`);
   } catch (e) {
-    warn(`DocSales(visits): visit_items недоступна (${e.message}), беру сумму из visits.total.`);
+    warn(`DocSales(visits): visit_items недоступна (${e.message}), беру сумму из visits.total/amount/sum (легаси).`);
   }
 
+  let zeroAmountVisits = 0;
   for (const v of visits) {
     const did = v.doctor_id != null ? String(v.doctor_id) : null;
     const dim = did ? doctorsById.get(did) : null;
@@ -592,11 +626,14 @@ async function aggregateDocSalesVisits(ds, start, end) {
       (dim && dim.name) ||
       null;
 
-    const day = toDay(v.visit_date ?? v.created_at ?? v.date);
+    const day = toDay(v.visit_at ?? v.visit_date ?? v.completed_at ?? v.created_at ?? v.date);
     if (!day) continue;
 
+    // Приоритет — сумма позиций visit_items; при её отсутствии легаси-fallback
+    // на суммовые поля самого визита (для старой схемы).
     const itemsAmount = amountByVisit.get(String(v.id));
     const amount = itemsAmount != null ? itemsAmount : toNumber(v.total ?? v.amount ?? v.sum);
+    if (!(amount > 0)) zeroAmountVisits += 1;
 
     const key = `${doctorCode}|${day}`;
     let a = agg.get(key);
@@ -610,6 +647,13 @@ async function aggregateDocSalesVisits(ds, start, end) {
     a.sources.add('visits');
   }
 
+  // Диагностика: если визиты есть, но у большинства сумма = 0 — это сигнал
+  // рассогласования схемы (например, visit_items пуста/недоступна или сумма
+  // хранится в другом поле). Логируем явно, чтобы такую регрессию было видно в логах.
+  if (zeroAmountVisits > 0) {
+    warn(`DocSales(visits): визитов с нулевой суммой: ${zeroAmountVisits} из ${visits.length}` +
+      (amountByVisit.size === 0 ? ' (visit_items не дала сумм — проверьте схему/RLS таблицы visit_items)' : ''));
+  }
   log(`DocSales(visits): агрегировано врачей×дней: ${agg.size}`);
   return agg;
 }
@@ -628,9 +672,12 @@ async function aggregateDoctorSales(ds, crmIndex, start, end) {
 
   let rows = [];
   try {
+    // sale_date в doctor_sales — timestamptz (напр. 2026-06-25T15:08:02+00:00),
+    // поэтому верхняя граница — конец суток end (T23:59:59), иначе lte.${end}
+    // трактуется как ≤ end 00:00:00 и продажи в течение последнего дня теряются.
     rows = await ds.select('doctor_sales', {
       select: '*',
-      filter: `sale_date=gte.${start}&sale_date=lte.${end}`,
+      filter: `sale_date=gte.${start}T00:00:00&sale_date=lte.${end}T23:59:59`,
     });
   } catch (e) {
     warn(`DocSales(doctor_sales): таблица недоступна или фильтр не сработал (${e.message}). Пропускаю источник.`);
