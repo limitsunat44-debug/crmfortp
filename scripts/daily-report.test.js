@@ -38,8 +38,15 @@ function extractFunction(src, name) {
 
 const context = {};
 vm.createContext(context);
-vm.runInContext(extractFunction(HTML, 'mergeDailyReportQuestions') + '\n;', context);
+const sandboxSrc = [
+  'mergeDailyReportQuestions',
+  'isDailyAnswerComplete',
+  'dailyReportProgress',
+].map((n) => extractFunction(HTML, n)).join('\n\n');
+vm.runInContext(sandboxSrc + '\n;', context);
 const merge = context.mergeDailyReportQuestions;
+const isComplete = context.isDailyAnswerComplete;
+const progress = context.dailyReportProgress;
 
 let passed = 0;
 let failed = 0;
@@ -134,6 +141,90 @@ test('стабильная сортировка при равном порядк
   ];
   const out = merge(qs, [], 'ivan');
   assert.strictEqual(out.map(q => q.id).join(','), '2,5,8');
+});
+
+console.log('\nisDailyAnswerComplete:');
+
+test('пустой / пробелы / null → неполный', () => {
+  ['', '   ', '\n\t', null, undefined].forEach(v =>
+    assert.strictEqual(isComplete(v), false, JSON.stringify(v)));
+});
+
+test('только пунктуация → неполный', () => {
+  ['-', '—', '.', '...', '???', '!!', '--'].forEach(v =>
+    assert.strictEqual(isComplete(v), false, v));
+});
+
+test('типовые отписки → неполный', () => {
+  ['нет', 'Нет', 'НЕТ', 'не знаю', 'не знаю.', 'хз', 'ничего', 'ок', 'норм',
+   'n/a', 'none', 'без комментариев', 'нету', 'все ок'].forEach(v =>
+    assert.strictEqual(isComplete(v), false, v));
+});
+
+test('слишком короткий ответ → неполный', () => {
+  ['да', 'ок!', '5', '2 врача'].forEach(v =>
+    assert.strictEqual(isComplete(v), false, v));
+});
+
+test('одно длинное слово (мало слов) → неполный', () => {
+  assert.strictEqual(isComplete('проанализировал'), false);
+});
+
+test('содержательный ответ → полный', () => {
+  [
+    'Обзвонил пять врачей, двое согласились на встречу',
+    'Нашёл 3 новых врача: кардиолог, невролог, терапевт',
+    'Проверил продажи, расхождений нет по всем точкам',
+  ].forEach(v => assert.strictEqual(isComplete(v), true, v));
+});
+
+test('«нет расхождений» — содержательный ответ (не отписка)', () => {
+  assert.strictEqual(isComplete('Расхождений не обнаружено, всё сходится'), true);
+});
+
+console.log('\ndailyReportProgress:');
+
+const pq = [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }];
+
+test('пустые ответы → 0%', () => {
+  const r = progress(pq, {});
+  assert.strictEqual(r.total, 4);
+  assert.strictEqual(r.complete, 0);
+  assert.strictEqual(r.percent, 0);
+});
+
+test('считает только содержательные ответы', () => {
+  const answers = {
+    '1': 'Обзвонил врачей и договорился о поставке',  // complete
+    '2': 'нет',                                        // placeholder → нет
+    '3': '-',                                          // пунктуация → нет
+    '4': 'Нашёл двух новых кардиологов сегодня',       // complete
+  };
+  const r = progress(pq, answers);
+  assert.strictEqual(r.complete, 2);
+  assert.strictEqual(r.percent, 50);
+});
+
+test('все содержательные → 100%', () => {
+  const answers = {
+    '1': 'Первый развёрнутый ответ по работе',
+    '2': 'Второй развёрнутый ответ по звонкам',
+    '3': 'Третий развёрнутый ответ по врачам',
+    '4': 'Четвёртый развёрнутый ответ по планам',
+  };
+  assert.strictEqual(progress(pq, answers).percent, 100);
+});
+
+test('процент округляется (1 из 3 → 33%)', () => {
+  const r = progress([{ id: 1 }, { id: 2 }, { id: 3 }],
+    { '1': 'Развёрнутый содержательный ответ здесь' });
+  assert.strictEqual(r.percent, 33);
+});
+
+test('нет вопросов → 0% без деления на ноль', () => {
+  const r = progress([], {});
+  assert.strictEqual(r.total, 0);
+  assert.strictEqual(r.percent, 0);
 });
 
 console.log(`\nИтого: ${passed} прошло, ${failed} упало`);

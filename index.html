@@ -1077,6 +1077,30 @@
         .badge.success { background: #e8f8ef; color: #1e8e4f; }
         .badge.warn { background: rgba(245,158,11,0.15); color: var(--warning-color); }
         .badge.error { background: #fdecea; color: #c0392b; }
+        /* ===== Индикатор прогресса ежедневного отчёта ===== */
+        .progress-track {
+            background: #e9edf2;
+            border-radius: 999px;
+            height: 10px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: #c0392b;
+            transition: width .25s ease, background .25s ease;
+        }
+        .progress-fill.mid { background: var(--warning-color, #F59E0B); }
+        .progress-fill.ok { background: #1e8e4f; }
+        .progress-track.sm { height: 6px; min-width: 70px; }
+        .daily-q-status {
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .daily-q-status.done { color: #1e8e4f; }
+        .daily-q-status.todo { color: var(--text-secondary, #999); }
         .week-card-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
         .week-card-actions .btn { padding: 4px 10px; font-size: 12px; }
         .week-col-empty { color: #aaa; font-size: 13px; padding: 8px 2px; text-align: center; }
@@ -1793,6 +1817,16 @@
                             </div>
                         </div>
                     </div>
+                    <div id="dailyProgressWrap" class="card" style="display:none;margin-bottom:16px;">
+                        <div class="card-body" style="padding:14px 16px;">
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap;">
+                                <span style="font-weight:600;">Прогресс заполнения</span>
+                                <span id="dailyProgressLabel" class="badge">0 / 0 · 0%</span>
+                            </div>
+                            <div class="progress-track"><div id="dailyProgressFill" class="progress-fill" style="width:0%;"></div></div>
+                            <div style="margin-top:6px;font-size:12px;color:var(--text-secondary,#888);">Засчитываются только содержательные ответы (не «нет», «-», «не знаю» и не слишком короткие).</div>
+                        </div>
+                    </div>
                     <div id="dailyQuestionsContainer">
                         <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Загрузка...</h3></div>
                     </div>
@@ -1816,8 +1850,8 @@
                         <div class="card-body">
                             <div style="overflow-x:auto;">
                                 <table class="table">
-                                    <thead><tr><th>ТП</th><th>Статус</th><th>Отправлен</th><th></th></tr></thead>
-                                    <tbody id="dailyOverviewBody"><tr><td colspan="4" style="text-align:center;padding:30px;">Загрузка...</td></tr></tbody>
+                                    <thead><tr><th>ТП</th><th>Статус</th><th>Заполнено</th><th>Отправлен</th><th></th></tr></thead>
+                                    <tbody id="dailyOverviewBody"><tr><td colspan="5" style="text-align:center;padding:30px;">Загрузка...</td></tr></tbody>
                                 </table>
                             </div>
                         </div>
@@ -5408,6 +5442,57 @@
             return list;
         }
 
+        // ---- ЧИСТАЯ (тестируемая) эвристика «полноты» ответа ----
+        // Ответ считается содержательным (complete), только если это не пустышка
+        // и не отписка. Прогресс отчёта растёт лишь по таким ответам.
+        // Правила (по порядку):
+        //   • пусто/пробелы → неполный;
+        //   • только знаки препинания ('-', '—', '...', '.') → неполный;
+        //   • типовые заглушки/отказы ('нет', 'не знаю', 'хз', 'ок', 'n/a', …) → неполный;
+        //   • слишком короткий: буквенно-цифровых символов < MIN_CHARS → неполный;
+        //   • слишком мало слов: < MIN_WORDS → неполный;
+        //   • иначе → полный.
+        function isDailyAnswerComplete(text) {
+            const MIN_CHARS = 8;   // минимум буквенно-цифровых символов
+            const MIN_WORDS = 2;   // минимум слов
+            const raw = String(text == null ? '' : text).trim();
+            if (!raw) return false;
+            const norm = raw.toLowerCase().replace(/\s+/g, ' ').trim();
+            // Версия без пунктуации (для отсева '-', '—', '...', 'нет.' и т.п.)
+            const stripped = norm.replace(/[.\-—–_!?,;:()"'`«»]/g, ' ').replace(/\s+/g, ' ').trim();
+            if (!stripped) return false;
+            const PLACEHOLDERS = new Set([
+                'нет', 'не', 'неа', 'нету', 'ничего', 'ничо', 'никак', 'никого', 'никому',
+                'не знаю', 'незнаю', 'хз', 'не в курсе', 'нет ничего', 'нету ничего',
+                'не было', 'ничего не было', 'без изменений', 'все', 'всё', 'все ок',
+                'всё ок', 'ок', 'окей', 'норм', 'нормально', 'пусто', 'прочерк',
+                'na', 'n a', 'none', 'no', 'no comment', 'без комментариев',
+                'пропуск', 'later', 'потом', '-', '--', '.', '...'
+            ]);
+            if (PLACEHOLDERS.has(norm) || PLACEHOLDERS.has(stripped)) return false;
+            const words = stripped.split(' ').filter(Boolean);
+            const alnum = stripped.replace(/\s/g, '').length;
+            if (alnum < MIN_CHARS) return false;
+            if (words.length < MIN_WORDS) return false;
+            return true;
+        }
+
+        // ---- ЧИСТАЯ (тестируемая) агрегация прогресса отчёта ----
+        // questions — список вопросов (как из mergeDailyReportQuestions), нужен q.id;
+        // answersByQ — map { String(question_id): answer_text }.
+        // Возвращает { total, complete, percent } — percent округлён до целого.
+        function dailyReportProgress(questions, answersByQ) {
+            const qs = Array.isArray(questions) ? questions : [];
+            const total = qs.length;
+            let complete = 0;
+            qs.forEach(q => {
+                const a = answersByQ ? answersByQ[String(q.id)] : undefined;
+                if (isDailyAnswerComplete(a)) complete++;
+            });
+            const percent = total ? Math.round((complete / total) * 100) : 0;
+            return { total, complete, percent };
+        }
+
         // Логин ТП, для которого сейчас заполняется отчёт (admin → выбранный, ТП → сам).
         function dailyFillRepLogin() {
             if (currentUser.role === 'admin') {
@@ -5465,6 +5550,8 @@
             const statusEl = document.getElementById('dailyFillStatus');
             container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Загрузка...</h3></div>';
             actions.style.display = 'none';
+            const progressWrap = document.getElementById('dailyProgressWrap');
+            if (progressWrap) progressWrap.style.display = 'none';
             statusEl.textContent = '';
             statusEl.className = 'badge';
             dailyCurrentReportId = null;
@@ -5505,7 +5592,9 @@
 
         function renderDailyQuestions(answersByQ) {
             const container = document.getElementById('dailyQuestionsContainer');
+            const progressWrap = document.getElementById('dailyProgressWrap');
             if (!dailyMergedQuestions.length) {
+                if (progressWrap) progressWrap.style.display = 'none';
                 container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><h3>Нет вопросов</h3><p>Администратор ещё не добавил вопросы для отчёта.</p></div>';
                 return;
             }
@@ -5518,12 +5607,41 @@
                 const val = answersByQ[String(q.id)] || '';
                 return `<div class="card" style="margin-bottom:14px;">
                     <div class="card-body">
-                        <label class="form-label" style="font-weight:600;">${i + 1}. ${escapeHtml(q.question_text)}${tag}</label>
+                        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+                            <label class="form-label" style="font-weight:600;flex:1;">${i + 1}. ${escapeHtml(q.question_text)}${tag}</label>
+                            <span class="daily-q-status todo" data-qid="${q.id}">—</span>
+                        </div>
                         ${subsHtml}
-                        <textarea class="form-control daily-answer" data-qid="${q.id}" rows="3" placeholder="Ваш ответ...">${escapeHtml(val)}</textarea>
+                        <textarea class="form-control daily-answer" data-qid="${q.id}" rows="3" placeholder="Ваш ответ..." oninput="updateDailyProgress()">${escapeHtml(val)}</textarea>
                     </div>
                 </div>`;
             }).join('');
+            if (progressWrap) progressWrap.style.display = 'block';
+            updateDailyProgress();
+        }
+
+        // Пересчитывает прогресс из текущих значений textarea и обновляет
+        // общий индикатор + пометки по каждому вопросу. Использует те же чистые
+        // функции dailyReportProgress/isDailyAnswerComplete.
+        function updateDailyProgress() {
+            const answersByQ = {};
+            document.querySelectorAll('#dailyQuestionsContainer .daily-answer').forEach(t => {
+                answersByQ[t.getAttribute('data-qid')] = t.value;
+            });
+            // Per-question метки.
+            document.querySelectorAll('#dailyQuestionsContainer .daily-q-status').forEach(el => {
+                const done = isDailyAnswerComplete(answersByQ[el.getAttribute('data-qid')]);
+                el.className = 'daily-q-status ' + (done ? 'done' : 'todo');
+                el.textContent = done ? '✓ готово' : '○ не заполнено';
+            });
+            const { total, complete, percent } = dailyReportProgress(dailyMergedQuestions, answersByQ);
+            const fill = document.getElementById('dailyProgressFill');
+            const label = document.getElementById('dailyProgressLabel');
+            if (fill) {
+                fill.style.width = percent + '%';
+                fill.className = 'progress-fill ' + (percent >= 100 ? 'ok' : percent >= 50 ? 'mid' : '');
+            }
+            if (label) label.textContent = `${complete} / ${total} · ${percent}%`;
         }
 
         function collectDailyAnswers() {
@@ -5566,17 +5684,37 @@
             const date = document.getElementById('dailyViewDate').value || ymd(new Date());
             const tbody = document.getElementById('dailyOverviewBody');
             document.getElementById('dailyViewAnswers').innerHTML = '';
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;">Загрузка...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;">Загрузка...</td></tr>';
             try {
                 if (allUsers.length === 0) await loadAllUsers();
                 const reps = allUsers.filter(u => u.role === 'salesrep');
                 const reports = await sbSelect(
                     `crm_daily_reports?report_date=eq.${encodeURIComponent(date)}&select=*`);
                 showDailySetupBanner(false);
+                // Для расчёта «заполнено %» тянем вопросы, overrides и ответы одним заходом.
+                const [questions, overrides] = await Promise.all([
+                    sbSelect(`crm_daily_report_questions?is_active=eq.true&select=*`),
+                    sbSelect(`crm_daily_report_question_overrides?select=*`).catch(() => [])
+                ]);
                 const byRep = {};
                 (reports || []).forEach(r => { byRep[r.rep_login] = r; });
+                const reportIds = (reports || []).map(r => r.id);
+                let answersByReport = {};
+                if (reportIds.length) {
+                    const ans = await sbSelect(
+                        `crm_daily_report_answers?report_id=in.(${reportIds.join(',')})&select=report_id,question_id,answer_text`).catch(() => []);
+                    (ans || []).forEach(a => {
+                        (answersByReport[a.report_id] = answersByReport[a.report_id] || {})[String(a.question_id)] = a.answer_text;
+                    });
+                }
+                const ovByRep = {};
+                (overrides || []).forEach(o => { (ovByRep[o.rep_login] = ovByRep[o.rep_login] || []).push(o); });
+
                 tbody.innerHTML = reps.length ? reps.map(rep => {
                     const rpt = byRep[rep.login];
+                    const merged = mergeDailyReportQuestions(questions, ovByRep[rep.login] || [], rep.login);
+                    const answersByQ = (rpt && answersByReport[rpt.id]) || {};
+                    const prog = dailyReportProgress(merged, answersByQ);
                     let badge, action;
                     if (!rpt) {
                         badge = '<span class="badge error">Нет отчёта</span>';
@@ -5587,13 +5725,18 @@
                             : '<span class="badge warn">Черновик</span>';
                         action = `<button class="btn btn-sm btn-secondary" onclick="viewDailyReportAnswers('${encodeURIComponent(rep.login)}','${date}')">👁 Ответы</button>`;
                     }
+                    const cls = prog.percent >= 100 ? 'ok' : prog.percent >= 50 ? 'mid' : '';
+                    const progCell = `<div style="display:flex;align-items:center;gap:8px;min-width:120px;">
+                        <div class="progress-track sm" style="flex:1;"><div class="progress-fill ${cls}" style="width:${prog.percent}%;"></div></div>
+                        <span style="font-size:12px;white-space:nowrap;">${prog.complete}/${prog.total} · ${prog.percent}%</span>
+                    </div>`;
                     const submitted = rpt && rpt.submitted_at ? formatDateTime(rpt.submitted_at) : '—';
-                    return `<tr><td>${escapeHtml(rep.name)} (${escapeHtml(rep.login)})</td><td>${badge}</td><td>${submitted}</td><td>${action}</td></tr>`;
-                }).join('') : '<tr><td colspan="4" style="text-align:center;padding:30px;">Нет торговых представителей</td></tr>';
+                    return `<tr><td>${escapeHtml(rep.name)} (${escapeHtml(rep.login)})</td><td>${badge}</td><td>${progCell}</td><td>${submitted}</td><td>${action}</td></tr>`;
+                }).join('') : '<tr><td colspan="5" style="text-align:center;padding:30px;">Нет торговых представителей</td></tr>';
             } catch (err) {
                 console.error('Ошибка обзора отчётов:', err);
                 showDailySetupBanner(true);
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}</td></tr>`;
             }
         }
 
@@ -5618,11 +5761,19 @@
                 }
                 const rep = allUsers.find(u => u.login === repLogin);
                 const title = rep ? `${rep.name} (${rep.login})` : repLogin;
-                box.innerHTML = `<div class="card"><div class="card-header"><h3 style="margin:0;">📋 ${escapeHtml(title)} — ${escapeHtml(date)}</h3></div>
+                const prog = dailyReportProgress(merged, answersByQ);
+                const pcls = prog.percent >= 100 ? 'ok' : prog.percent >= 50 ? 'mid' : '';
+                const progHeader = merged.length ? `<div style="margin-top:10px;display:flex;align-items:center;gap:10px;">
+                    <div class="progress-track sm" style="flex:1;max-width:260px;"><div class="progress-fill ${pcls}" style="width:${prog.percent}%;"></div></div>
+                    <span class="badge ${pcls === 'ok' ? 'success' : pcls === 'mid' ? 'warn' : 'error'}">${prog.complete}/${prog.total} · ${prog.percent}% содержательно</span>
+                </div>` : '';
+                box.innerHTML = `<div class="card"><div class="card-header"><h3 style="margin:0;">📋 ${escapeHtml(title)} — ${escapeHtml(date)}</h3>${progHeader}</div>
                     <div class="card-body">${merged.map((q, i) => {
                         const a = (answersByQ[String(q.id)] || '').trim();
+                        const done = isDailyAnswerComplete(a);
+                        const mark = `<span class="daily-q-status ${done ? 'done' : 'todo'}">${done ? '✓ содержательно' : '○ пусто/кратко'}</span>`;
                         return `<div style="margin-bottom:14px;">
-                            <div style="font-weight:600;">${i + 1}. ${escapeHtml(q.question_text)}</div>
+                            <div style="display:flex;justify-content:space-between;gap:10px;"><div style="font-weight:600;">${i + 1}. ${escapeHtml(q.question_text)}</div>${mark}</div>
                             <div style="white-space:pre-wrap;margin-top:4px;${a ? '' : 'color:var(--text-secondary,#999);'}">${a ? escapeHtml(a) : '— нет ответа —'}</div>
                         </div>`;
                     }).join('') || 'Нет вопросов'}</div></div>`;
