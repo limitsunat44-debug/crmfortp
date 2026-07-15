@@ -1073,6 +1073,10 @@
         .badge-paid { background: #e8f8ef; color: #1e8e4f; }
         .badge-unpaid { background: #fdecea; color: #c0392b; }
         .badge-amount { background: #eef2f7; color: #44607a; }
+        .badge { background: #eef2f7; color: #44607a; }
+        .badge.success { background: #e8f8ef; color: #1e8e4f; }
+        .badge.warn { background: rgba(245,158,11,0.15); color: var(--warning-color); }
+        .badge.error { background: #fdecea; color: #c0392b; }
         .week-card-actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
         .week-card-actions .btn { padding: 4px 10px; font-size: 12px; }
         .week-col-empty { color: #aaa; font-size: 13px; padding: 8px 2px; text-align: center; }
@@ -1322,6 +1326,7 @@
                     <button class="nav-tab" id="salesReconBtn" onclick="showSalesReconSection()" style="display: none;">💵 Продажи</button>
                     <button class="nav-tab" id="paymentsBtn" onclick="showPaymentsSection()" style="display: none;">💳 Выплаты</button>
                     <button class="nav-tab" id="planBtn" onclick="showPlanSection()" style="display: none;">🗓 План</button>
+                    <button class="nav-tab" id="dailyReportBtn" onclick="showDailyReportSection()" style="display: none;">📝 Отчёт за день</button>
                     <button class="nav-tab" id="profileBtn" onclick="showProfileSection()" style="display: none;">🧑‍💼 Профиль</button>
                     <button class="nav-tab" id="adminStatsBtn" onclick="showAdminStatsSection()" style="display: none;">📊 Статистика</button>
                 </div>
@@ -1752,6 +1757,125 @@
                 </div>
             </div>
 
+            <!-- ===== Вкладка: ЕЖЕДНЕВНЫЙ ОТЧЁТ ТП ===== -->
+            <div id="dailyReportSection" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">📝 Работа за сегодня</h2>
+                    <div class="header-actions" id="dailyAdminModeWrap" style="display:none;">
+                        <button class="btn btn-secondary" id="dailyModeFillBtn" onclick="switchDailyMode('fill')">✍️ Заполнить</button>
+                        <button class="btn btn-secondary" id="dailyModeViewBtn" onclick="switchDailyMode('view')">📋 Отчёты ТП</button>
+                        <button class="btn btn-secondary" id="dailyModeManageBtn" onclick="switchDailyMode('manage')">⚙️ Вопросы</button>
+                    </div>
+                </div>
+
+                <!-- Баннер, если таблицы ещё не созданы -->
+                <div id="dailySetupBanner" class="card" style="display:none;margin-bottom:20px;border-left:4px solid var(--warning-color,#f5a623);">
+                    <div class="card-body">
+                        <h3 style="margin:0 0 8px;">⚠️ Требуется миграция базы</h3>
+                        <p style="margin:0;">Таблицы ежедневного отчёта не найдены. Администратору нужно один раз выполнить SQL-миграцию <code>sql-daily-reports.sql</code> в Supabase SQL Editor, после чего вкладка заработает.</p>
+                    </div>
+                </div>
+
+                <!-- ------- Режим: ЗАПОЛНЕНИЕ ОТЧЁТА (ТП + админ за выбранного ТП) ------- -->
+                <div id="dailyFillMode">
+                    <div class="filters" style="margin-bottom:20px;">
+                        <div style="display:flex;gap:15px;flex-wrap:wrap;align-items:flex-end;">
+                            <div class="form-group" style="margin:0;" id="dailyFillRepWrap">
+                                <label class="form-label">ТП</label>
+                                <select id="dailyFillRepSelect" class="form-control" style="width:220px;" onchange="loadDailyReport()"></select>
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label">Дата</label>
+                                <input type="date" id="dailyFillDate" class="form-control" style="width:170px;" onchange="loadDailyReport()">
+                            </div>
+                            <div class="form-group" style="margin:0;">
+                                <span id="dailyFillStatus" class="badge"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dailyQuestionsContainer">
+                        <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Загрузка...</h3></div>
+                    </div>
+                    <div id="dailyFillActions" style="display:none;gap:12px;flex-wrap:wrap;margin-top:16px;">
+                        <button class="btn btn-secondary" onclick="saveDailyReport('draft')">💾 Сохранить черновик</button>
+                        <button class="btn btn-success" onclick="saveDailyReport('submitted')">✅ Отправить отчёт</button>
+                    </div>
+                </div>
+
+                <!-- ------- Режим: ПРОСМОТР ОТЧЁТОВ (только админ) ------- -->
+                <div id="dailyViewMode" style="display:none;">
+                    <div class="filters" style="margin-bottom:20px;">
+                        <div style="display:flex;gap:15px;flex-wrap:wrap;align-items:flex-end;">
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label">Дата</label>
+                                <input type="date" id="dailyViewDate" class="form-control" style="width:170px;" onchange="loadDailyOverview()">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <div style="overflow-x:auto;">
+                                <table class="table">
+                                    <thead><tr><th>ТП</th><th>Статус</th><th>Отправлен</th><th></th></tr></thead>
+                                    <tbody id="dailyOverviewBody"><tr><td colspan="4" style="text-align:center;padding:30px;">Загрузка...</td></tr></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="dailyViewAnswers" style="margin-top:20px;"></div>
+                </div>
+
+                <!-- ------- Режим: УПРАВЛЕНИЕ ВОПРОСАМИ (только админ) ------- -->
+                <div id="dailyManageMode" style="display:none;">
+                    <div class="filters" style="margin-bottom:20px;">
+                        <div style="display:flex;gap:15px;flex-wrap:wrap;align-items:flex-end;">
+                            <div class="form-group" style="margin:0;">
+                                <label class="form-label">Настроить для</label>
+                                <select id="dailyManageRepSelect" class="form-control" style="width:240px;" onchange="loadDailyQuestionsAdmin()">
+                                    <option value="all">Все ТП (глобальные вопросы)</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-success" onclick="showDailyQuestionForm()">➕ Добавить вопрос</button>
+                        </div>
+                    </div>
+                    <div id="dailyManageHint" class="card" style="margin-bottom:16px;display:none;">
+                        <div class="card-body" style="padding:12px 16px;color:var(--text-secondary,#666);">
+                            Для выбранного ТП: глобальные вопросы можно скрыть (переключатель) или переупорядочить индивидуально. Персональные вопросы этого ТП можно редактировать и удалять.
+                        </div>
+                    </div>
+                    <div id="dailyQuestionsAdminList">
+                        <div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Загрузка...</h3></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Модальное окно: создание/редактирование вопроса отчёта -->
+            <div id="dailyQuestionModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header"><h3 id="dailyQuestionModalTitle">Новый вопрос</h3><span class="close-btn" onclick="hideDailyQuestionForm()">&times;</span></div>
+                    <div class="modal-body">
+                        <input type="hidden" id="dailyQFormId">
+                        <input type="hidden" id="dailyQFormAppliesTo">
+                        <div class="form-group">
+                            <label class="form-label">Текст вопроса *</label>
+                            <textarea class="form-control" id="dailyQFormText" rows="2" placeholder="Например: Кому звонили сегодня?"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Подсказки / подвопросы (по одной на строку)</label>
+                            <textarea class="form-control" id="dailyQFormSubs" rows="4" placeholder="ФИО&#10;Тема&#10;Итог"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Порядок (меньше = выше)</label>
+                            <input type="number" class="form-control" id="dailyQFormOrder" style="width:120px;" value="0">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="hideDailyQuestionForm()">Отмена</button>
+                        <button class="btn btn-success" onclick="saveDailyQuestion()">Сохранить</button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Модальное окно: создание выплаты -->
             <div id="paymentModal" class="modal">
                 <div class="modal-content">
@@ -2096,6 +2220,7 @@
             <button class="bottom-nav-btn" id="bnRecon" onclick="showSalesReconSection()"><span class="bn-icon">💵</span>Продажи</button>
             <button class="bottom-nav-btn" id="bnPayments" onclick="showPaymentsSection()"><span class="bn-icon">💳</span>Выплаты</button>
             <button class="bottom-nav-btn" id="bnPlan" onclick="showPlanSection()"><span class="bn-icon">🗓</span>План</button>
+            <button class="bottom-nav-btn" id="bnDaily" onclick="showDailyReportSection()"><span class="bn-icon">📝</span>Отчёт</button>
             <button class="bottom-nav-btn" id="bnProfile" onclick="showProfileSection()"><span class="bn-icon">🧑‍💼</span>Профиль</button>
         </div>
     </nav>
@@ -2267,7 +2392,7 @@
             ['manageRepsBtn','adminStatsBtn'].forEach(id =>
                 document.getElementById(id).style.display = isAdmin ? 'inline-flex' : 'none');
             // Кнопки, доступные обеим ролям
-            ['doctorsBtn','salesReconBtn','paymentsBtn','planBtn','profileBtn'].forEach(id =>
+            ['doctorsBtn','salesReconBtn','paymentsBtn','planBtn','dailyReportBtn','profileBtn'].forEach(id =>
                 document.getElementById(id).style.display = 'inline-flex');
 
             document.body.classList.add('app-authed');
@@ -2288,9 +2413,9 @@
 
         // Список идентификаторов новых вкладок-секций
         const SUB_SECTION_IDS = ['doctorsSection','manageRepsSection','salesReconSection',
-            'paymentsSection','planSection','profileSection','adminStatsSection'];
+            'paymentsSection','planSection','dailyReportSection','profileSection','adminStatsSection'];
         const NAV_BTN_IDS = ['dashboardNavBtn','doctorsBtn','manageRepsBtn','salesReconBtn',
-            'paymentsBtn','planBtn','profileBtn','adminStatsBtn'];
+            'paymentsBtn','planBtn','dailyReportBtn','profileBtn','adminStatsBtn'];
         // Соответствие секция → кнопка навигации (для подсветки активной вкладки)
         const SECTION_TO_NAV_BTN = {
             doctorsSection: 'doctorsBtn',
@@ -2298,6 +2423,7 @@
             salesReconSection: 'salesReconBtn',
             paymentsSection: 'paymentsBtn',
             planSection: 'planBtn',
+            dailyReportSection: 'dailyReportBtn',
             profileSection: 'profileBtn',
             adminStatsSection: 'adminStatsBtn'
         };
@@ -2308,6 +2434,7 @@
             salesReconBtn: 'bnRecon',
             paymentsBtn: 'bnPayments',
             planBtn: 'bnPlan',
+            dailyReportBtn: 'bnDaily',
             profileBtn: 'bnProfile'
         };
 
@@ -5202,6 +5329,521 @@
             } catch (err) {
                 console.error('Ошибка статистики:', err);
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}</td></tr>`;
+            }
+        }
+
+        // ============================================================
+        // ВКЛАДКА: ЕЖЕДНЕВНЫЙ ОТЧЁТ ТП («Работа за сегодня»)
+        // ============================================================
+        // Данные лежат в 4 таблицах (см. sql-daily-reports.sql):
+        //   crm_daily_report_questions          — вопросы (глобальные и персональные)
+        //   crm_daily_report_question_overrides  — персонализация глоб. вопросов под ТП
+        //   crm_daily_reports                    — шапка отчёта (ТП, дата, статус)
+        //   crm_daily_report_answers             — ответы
+        // Frontend работает через anon-ключ (как и остальной проект).
+
+        let dailyMode = 'fill';            // 'fill' | 'view' | 'manage'
+        let dailyCurrentReportId = null;   // id строки crm_daily_reports для режима заполнения
+        let dailyMergedQuestions = [];     // текущий отрисованный список вопросов (fill)
+        let dailyAdminQuestions = [];      // кэш вопросов для режима управления
+        let dailyAdminOverrides = [];      // кэш overrides выбранного ТП
+
+        // ---- Доп. хелперы REST (delete / upsert) в стиле проекта ----
+        async function sbDelete(table, query) {
+            const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+                method: 'DELETE', headers: sbHeaders()
+            });
+            if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + await r.text());
+            return true;
+        }
+        async function sbUpsert(table, body, onConflict) {
+            const q = onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : '';
+            const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}${q}`, {
+                method: 'POST',
+                headers: sbHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation,resolution=merge-duplicates' }),
+                body: JSON.stringify(body)
+            });
+            if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + await r.text());
+            return r.json();
+        }
+
+        // ---- ЧИСТАЯ (тестируемая) функция слияния вопросов для конкретного ТП ----
+        // Вход:
+        //   allQuestions — строки crm_daily_report_questions (глобальные applies_to='all'
+        //                  и персональные applies_to=<login>);
+        //   overrides    — строки crm_daily_report_question_overrides для этого ТП;
+        //   repLogin     — логин ТП.
+        // Возвращает упорядоченный список активных ВИДИМЫХ этому ТП вопросов.
+        // Правила:
+        //   • неактивные (is_active=false) вопросы отбрасываются (мягкое удаление);
+        //   • персональные вопросы другого ТП отбрасываются;
+        //   • глобальный вопрос, скрытый override.is_hidden для этого ТП, отбрасывается;
+        //   • порядок = custom_sort_order из override (если задан), иначе sort_order;
+        //   • сортировка по эффективному порядку, затем по id (стабильно).
+        function mergeDailyReportQuestions(allQuestions, overrides, repLogin) {
+            const ovByQ = {};
+            (overrides || []).forEach(o => { if (o) ovByQ[String(o.question_id)] = o; });
+            const list = [];
+            (allQuestions || []).forEach(q => {
+                if (!q || q.is_active === false) return;
+                const applies = q.applies_to || 'all';
+                const isGlobal = applies === 'all';
+                const isOwnCustom = applies === repLogin;
+                if (!isGlobal && !isOwnCustom) return;
+                const ov = isGlobal ? ovByQ[String(q.id)] : null;
+                if (ov && ov.is_hidden) return;
+                const effectiveOrder = (ov && ov.custom_sort_order != null)
+                    ? Number(ov.custom_sort_order)
+                    : Number(q.sort_order || 0);
+                list.push({
+                    id: q.id,
+                    question_text: q.question_text,
+                    subquestions: Array.isArray(q.subquestions) ? q.subquestions : [],
+                    applies_to: applies,
+                    source: isGlobal ? 'global' : 'custom',
+                    effective_order: effectiveOrder
+                });
+            });
+            list.sort((a, b) => (a.effective_order - b.effective_order) || (Number(a.id) - Number(b.id)));
+            return list;
+        }
+
+        // Логин ТП, для которого сейчас заполняется отчёт (admin → выбранный, ТП → сам).
+        function dailyFillRepLogin() {
+            if (currentUser.role === 'admin') {
+                return document.getElementById('dailyFillRepSelect').value || activeRepLogin();
+            }
+            return currentUser.login;
+        }
+
+        function showDailyReportSection() {
+            if (!currentUser) return;
+            openSubSection('dailyReportSection');
+            const isAdmin = currentUser.role === 'admin';
+            document.getElementById('dailyAdminModeWrap').style.display = isAdmin ? 'flex' : 'none';
+            document.getElementById('dailyFillRepWrap').style.display = isAdmin ? 'block' : 'none';
+            if (isAdmin) {
+                populateRepSelect('dailyFillRepSelect', false);
+                populateDailyManageRepSelect();
+            }
+            // Дата по умолчанию — сегодня.
+            const df = document.getElementById('dailyFillDate');
+            if (df && !df.value) df.value = ymd(new Date());
+            const dv = document.getElementById('dailyViewDate');
+            if (dv && !dv.value) dv.value = ymd(new Date());
+            switchDailyMode('fill');
+        }
+
+        function switchDailyMode(mode) {
+            // Не-админ работает только в режиме заполнения.
+            if (currentUser.role !== 'admin') mode = 'fill';
+            dailyMode = mode;
+            document.getElementById('dailyFillMode').style.display = mode === 'fill' ? 'block' : 'none';
+            document.getElementById('dailyViewMode').style.display = mode === 'view' ? 'block' : 'none';
+            document.getElementById('dailyManageMode').style.display = mode === 'manage' ? 'block' : 'none';
+            ['dailyModeFillBtn','dailyModeViewBtn','dailyModeManageBtn'].forEach(id => {
+                const el = document.getElementById(id); if (el) el.classList.remove('btn-primary');
+            });
+            const activeBtn = { fill: 'dailyModeFillBtn', view: 'dailyModeViewBtn', manage: 'dailyModeManageBtn' }[mode];
+            const ab = document.getElementById(activeBtn); if (ab) ab.classList.add('btn-primary');
+            if (mode === 'fill') loadDailyReport();
+            else if (mode === 'view') loadDailyOverview();
+            else if (mode === 'manage') loadDailyQuestionsAdmin();
+        }
+
+        function showDailySetupBanner(show) {
+            const b = document.getElementById('dailySetupBanner');
+            if (b) b.style.display = show ? 'block' : 'none';
+        }
+
+        // ---------- Режим ЗАПОЛНЕНИЯ ----------
+        async function loadDailyReport() {
+            const repLogin = dailyFillRepLogin();
+            const date = document.getElementById('dailyFillDate').value || ymd(new Date());
+            const container = document.getElementById('dailyQuestionsContainer');
+            const actions = document.getElementById('dailyFillActions');
+            const statusEl = document.getElementById('dailyFillStatus');
+            container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Загрузка...</h3></div>';
+            actions.style.display = 'none';
+            statusEl.textContent = '';
+            statusEl.className = 'badge';
+            dailyCurrentReportId = null;
+            try {
+                const encRep = encodeURIComponent(repLogin);
+                // Вопросы: глобальные + персональные этого ТП.
+                const questions = await sbSelect(
+                    `crm_daily_report_questions?is_active=eq.true&or=(applies_to.eq.all,applies_to.eq.${encRep})&select=*`);
+                showDailySetupBanner(false);
+                const overrides = await sbSelect(
+                    `crm_daily_report_question_overrides?rep_login=eq.${encRep}&select=*`).catch(() => []);
+                dailyMergedQuestions = mergeDailyReportQuestions(questions, overrides, repLogin);
+
+                // Существующий отчёт за (ТП, дату) + ответы.
+                const reports = await sbSelect(
+                    `crm_daily_reports?rep_login=eq.${encRep}&report_date=eq.${encodeURIComponent(date)}&select=*`);
+                let answersByQ = {};
+                if (reports && reports.length) {
+                    dailyCurrentReportId = reports[0].id;
+                    const ans = await sbSelect(
+                        `crm_daily_report_answers?report_id=eq.${encodeURIComponent(dailyCurrentReportId)}&select=*`);
+                    (ans || []).forEach(a => { answersByQ[String(a.question_id)] = a.answer_text; });
+                    const st = reports[0].status;
+                    statusEl.textContent = st === 'submitted' ? 'Отправлен' : 'Черновик';
+                    statusEl.className = 'badge ' + (st === 'submitted' ? 'success' : 'warn');
+                } else {
+                    statusEl.textContent = 'Не заполнен';
+                    statusEl.className = 'badge';
+                }
+                renderDailyQuestions(answersByQ);
+                actions.style.display = 'flex';
+            } catch (err) {
+                console.error('Ошибка загрузки отчёта:', err);
+                showDailySetupBanner(true);
+                container.innerHTML = '';
+            }
+        }
+
+        function renderDailyQuestions(answersByQ) {
+            const container = document.getElementById('dailyQuestionsContainer');
+            if (!dailyMergedQuestions.length) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><h3>Нет вопросов</h3><p>Администратор ещё не добавил вопросы для отчёта.</p></div>';
+                return;
+            }
+            container.innerHTML = dailyMergedQuestions.map((q, i) => {
+                const subs = (q.subquestions || []).filter(s => String(s || '').trim());
+                const subsHtml = subs.length
+                    ? `<ul style="margin:4px 0 10px 18px;padding:0;color:var(--text-secondary,#666);font-size:13px;">${subs.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`
+                    : '';
+                const tag = q.source === 'custom' ? ' <span class="badge" style="font-size:11px;">персональный</span>' : '';
+                const val = answersByQ[String(q.id)] || '';
+                return `<div class="card" style="margin-bottom:14px;">
+                    <div class="card-body">
+                        <label class="form-label" style="font-weight:600;">${i + 1}. ${escapeHtml(q.question_text)}${tag}</label>
+                        ${subsHtml}
+                        <textarea class="form-control daily-answer" data-qid="${q.id}" rows="3" placeholder="Ваш ответ...">${escapeHtml(val)}</textarea>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function collectDailyAnswers() {
+            const out = [];
+            document.querySelectorAll('#dailyQuestionsContainer .daily-answer').forEach(t => {
+                out.push({ question_id: Number(t.getAttribute('data-qid')), answer_text: t.value });
+            });
+            return out;
+        }
+
+        async function saveDailyReport(status) {
+            const repLogin = dailyFillRepLogin();
+            const date = document.getElementById('dailyFillDate').value || ymd(new Date());
+            try {
+                const header = {
+                    rep_login: repLogin,
+                    report_date: date,
+                    status: status,
+                    submitted_at: status === 'submitted' ? new Date().toISOString() : null
+                };
+                const saved = await sbUpsert('crm_daily_reports', header, 'rep_login,report_date');
+                const reportId = (saved && saved[0] && saved[0].id) || dailyCurrentReportId;
+                dailyCurrentReportId = reportId;
+                const answers = collectDailyAnswers()
+                    .map(a => ({ report_id: reportId, question_id: a.question_id, answer_text: a.answer_text }));
+                if (answers.length) {
+                    await sbUpsert('crm_daily_report_answers', answers, 'report_id,question_id');
+                }
+                showNotification(status === 'submitted' ? '✅ Отчёт отправлен' : '💾 Черновик сохранён', 'success');
+                loadDailyReport();
+            } catch (err) {
+                console.error('Ошибка сохранения отчёта:', err);
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+        }
+
+        // ---------- Режим ПРОСМОТРА (админ) ----------
+        async function loadDailyOverview() {
+            if (currentUser.role !== 'admin') return;
+            const date = document.getElementById('dailyViewDate').value || ymd(new Date());
+            const tbody = document.getElementById('dailyOverviewBody');
+            document.getElementById('dailyViewAnswers').innerHTML = '';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;">Загрузка...</td></tr>';
+            try {
+                if (allUsers.length === 0) await loadAllUsers();
+                const reps = allUsers.filter(u => u.role === 'salesrep');
+                const reports = await sbSelect(
+                    `crm_daily_reports?report_date=eq.${encodeURIComponent(date)}&select=*`);
+                showDailySetupBanner(false);
+                const byRep = {};
+                (reports || []).forEach(r => { byRep[r.rep_login] = r; });
+                tbody.innerHTML = reps.length ? reps.map(rep => {
+                    const rpt = byRep[rep.login];
+                    let badge, action;
+                    if (!rpt) {
+                        badge = '<span class="badge error">Нет отчёта</span>';
+                        action = '';
+                    } else {
+                        badge = rpt.status === 'submitted'
+                            ? '<span class="badge success">Отправлен</span>'
+                            : '<span class="badge warn">Черновик</span>';
+                        action = `<button class="btn btn-sm btn-secondary" onclick="viewDailyReportAnswers('${encodeURIComponent(rep.login)}','${date}')">👁 Ответы</button>`;
+                    }
+                    const submitted = rpt && rpt.submitted_at ? formatDateTime(rpt.submitted_at) : '—';
+                    return `<tr><td>${escapeHtml(rep.name)} (${escapeHtml(rep.login)})</td><td>${badge}</td><td>${submitted}</td><td>${action}</td></tr>`;
+                }).join('') : '<tr><td colspan="4" style="text-align:center;padding:30px;">Нет торговых представителей</td></tr>';
+            } catch (err) {
+                console.error('Ошибка обзора отчётов:', err);
+                showDailySetupBanner(true);
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${err.message}</td></tr>`;
+            }
+        }
+
+        async function viewDailyReportAnswers(encRep, date) {
+            const repLogin = decodeURIComponent(encRep);
+            const box = document.getElementById('dailyViewAnswers');
+            box.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Загрузка ответов...</h3></div>';
+            try {
+                const encRepEnc = encodeURIComponent(repLogin);
+                const questions = await sbSelect(
+                    `crm_daily_report_questions?or=(applies_to.eq.all,applies_to.eq.${encRepEnc})&select=*`);
+                const overrides = await sbSelect(
+                    `crm_daily_report_question_overrides?rep_login=eq.${encRepEnc}&select=*`).catch(() => []);
+                const merged = mergeDailyReportQuestions(questions, overrides, repLogin);
+                const reports = await sbSelect(
+                    `crm_daily_reports?rep_login=eq.${encRepEnc}&report_date=eq.${encodeURIComponent(date)}&select=*`);
+                let answersByQ = {};
+                if (reports && reports.length) {
+                    const ans = await sbSelect(
+                        `crm_daily_report_answers?report_id=eq.${encodeURIComponent(reports[0].id)}&select=*`);
+                    (ans || []).forEach(a => { answersByQ[String(a.question_id)] = a.answer_text; });
+                }
+                const rep = allUsers.find(u => u.login === repLogin);
+                const title = rep ? `${rep.name} (${rep.login})` : repLogin;
+                box.innerHTML = `<div class="card"><div class="card-header"><h3 style="margin:0;">📋 ${escapeHtml(title)} — ${escapeHtml(date)}</h3></div>
+                    <div class="card-body">${merged.map((q, i) => {
+                        const a = (answersByQ[String(q.id)] || '').trim();
+                        return `<div style="margin-bottom:14px;">
+                            <div style="font-weight:600;">${i + 1}. ${escapeHtml(q.question_text)}</div>
+                            <div style="white-space:pre-wrap;margin-top:4px;${a ? '' : 'color:var(--text-secondary,#999);'}">${a ? escapeHtml(a) : '— нет ответа —'}</div>
+                        </div>`;
+                    }).join('') || 'Нет вопросов'}</div></div>`;
+            } catch (err) {
+                box.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Ошибка</h3><p>${err.message}</p></div>`;
+            }
+        }
+
+        // ---------- Режим УПРАВЛЕНИЯ ВОПРОСАМИ (админ) ----------
+        function populateDailyManageRepSelect() {
+            const sel = document.getElementById('dailyManageRepSelect');
+            if (!sel) return;
+            const reps = allUsers.filter(u => u.role === 'salesrep');
+            const fill = () => {
+                const cur = sel.value;
+                sel.innerHTML = '<option value="all">Все ТП (глобальные вопросы)</option>';
+                reps.forEach(u => {
+                    const o = document.createElement('option');
+                    o.value = u.login; o.textContent = `${u.name} (${u.login})`;
+                    sel.appendChild(o);
+                });
+                if (cur) sel.value = cur;
+            };
+            if (reps.length === 0) loadAllUsers().then(fill); else fill();
+        }
+
+        function dailyManageScope() {
+            return document.getElementById('dailyManageRepSelect').value || 'all';
+        }
+
+        async function loadDailyQuestionsAdmin() {
+            if (currentUser.role !== 'admin') return;
+            const scope = dailyManageScope();
+            const perRep = scope !== 'all';
+            document.getElementById('dailyManageHint').style.display = perRep ? 'block' : 'none';
+            const list = document.getElementById('dailyQuestionsAdminList');
+            list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><h3>Загрузка...</h3></div>';
+            try {
+                const filter = perRep
+                    ? `or=(applies_to.eq.all,applies_to.eq.${encodeURIComponent(scope)})`
+                    : `applies_to=eq.all`;
+                dailyAdminQuestions = await sbSelect(
+                    `crm_daily_report_questions?is_active=eq.true&${filter}&select=*`);
+                showDailySetupBanner(false);
+                dailyAdminOverrides = perRep
+                    ? await sbSelect(`crm_daily_report_question_overrides?rep_login=eq.${encodeURIComponent(scope)}&select=*`).catch(() => [])
+                    : [];
+                renderDailyQuestionsAdmin();
+            } catch (err) {
+                console.error('Ошибка загрузки вопросов:', err);
+                showDailySetupBanner(true);
+                list.innerHTML = '';
+            }
+        }
+
+        function renderDailyQuestionsAdmin() {
+            const scope = dailyManageScope();
+            const perRep = scope !== 'all';
+            const list = document.getElementById('dailyQuestionsAdminList');
+            const ovByQ = {};
+            dailyAdminOverrides.forEach(o => { ovByQ[String(o.question_id)] = o; });
+            // Упорядочиваем как увидит ТП/глобально: по эффективному порядку.
+            const ordered = dailyAdminQuestions.slice().map(q => {
+                const ov = ovByQ[String(q.id)];
+                const eff = (perRep && ov && ov.custom_sort_order != null) ? Number(ov.custom_sort_order) : Number(q.sort_order || 0);
+                return { q, ov, eff };
+            }).sort((a, b) => (a.eff - b.eff) || (Number(a.q.id) - Number(b.q.id)));
+
+            if (!ordered.length) {
+                list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><h3>Нет вопросов</h3><p>Добавьте первый вопрос кнопкой выше.</p></div>';
+                return;
+            }
+            list.innerHTML = ordered.map((item, i) => {
+                const q = item.q;
+                const isGlobal = (q.applies_to || 'all') === 'all';
+                const subs = (q.subquestions || []).filter(s => String(s || '').trim());
+                const subsHtml = subs.length
+                    ? `<ul style="margin:6px 0 0 18px;padding:0;color:var(--text-secondary,#666);font-size:13px;">${subs.map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ul>`
+                    : '';
+                const hidden = perRep && item.ov && item.ov.is_hidden;
+                const scopeTag = isGlobal ? '<span class="badge">глобальный</span>' : '<span class="badge success">персональный</span>';
+                // Действия зависят от контекста:
+                let actions = `<button class="btn btn-sm btn-secondary" onclick="moveDailyQuestion(${q.id},-1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+                    <button class="btn btn-sm btn-secondary" onclick="moveDailyQuestion(${q.id},1)" ${i === ordered.length - 1 ? 'disabled' : ''}>↓</button>`;
+                if (perRep && isGlobal) {
+                    // Глобальный вопрос в контексте ТП: только скрыть/показать + порядок.
+                    actions += `<button class="btn btn-sm ${hidden ? 'btn-secondary' : 'btn-danger'}" onclick="toggleDailyOverrideHidden(${q.id})">${hidden ? '👁 Показать' : '🙈 Скрыть для ТП'}</button>`;
+                } else {
+                    // Свой вопрос (глоб. в 'all' scope или персональный): правка + удаление.
+                    actions += `<button class="btn btn-sm btn-primary" onclick="editDailyQuestion(${q.id})">✏️</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteDailyQuestion(${q.id})">🗑</button>`;
+                }
+                return `<div class="card" style="margin-bottom:10px;${hidden ? 'opacity:.55;' : ''}">
+                    <div class="card-body" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
+                        <div style="flex:1;min-width:200px;">
+                            <div style="font-weight:600;">${i + 1}. ${escapeHtml(q.question_text)} ${scopeTag}${hidden ? ' <span class="badge error">скрыт</span>' : ''}</div>
+                            ${subsHtml}
+                        </div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">${actions}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function showDailyQuestionForm() {
+            const scope = dailyManageScope();
+            document.getElementById('dailyQuestionModalTitle').textContent =
+                scope === 'all' ? 'Новый глобальный вопрос' : 'Новый персональный вопрос';
+            document.getElementById('dailyQFormId').value = '';
+            document.getElementById('dailyQFormAppliesTo').value = scope;
+            document.getElementById('dailyQFormText').value = '';
+            document.getElementById('dailyQFormSubs').value = '';
+            const orders = dailyAdminQuestions.map(q => Number(q.sort_order || 0));
+            document.getElementById('dailyQFormOrder').value = (orders.length ? Math.max(...orders) : 0) + 10;
+            document.getElementById('dailyQuestionModal').classList.add('active');
+        }
+
+        function editDailyQuestion(id) {
+            const q = dailyAdminQuestions.find(x => String(x.id) === String(id));
+            if (!q) return;
+            document.getElementById('dailyQuestionModalTitle').textContent = 'Редактировать вопрос';
+            document.getElementById('dailyQFormId').value = q.id;
+            document.getElementById('dailyQFormAppliesTo').value = q.applies_to || 'all';
+            document.getElementById('dailyQFormText').value = q.question_text || '';
+            document.getElementById('dailyQFormSubs').value = (Array.isArray(q.subquestions) ? q.subquestions : []).join('\n');
+            document.getElementById('dailyQFormOrder').value = Number(q.sort_order || 0);
+            document.getElementById('dailyQuestionModal').classList.add('active');
+        }
+
+        function hideDailyQuestionForm() {
+            document.getElementById('dailyQuestionModal').classList.remove('active');
+        }
+
+        async function saveDailyQuestion() {
+            const id = document.getElementById('dailyQFormId').value;
+            const text = document.getElementById('dailyQFormText').value.trim();
+            if (!text) { showNotification('❌ Введите текст вопроса', 'error'); return; }
+            const subs = document.getElementById('dailyQFormSubs').value
+                .split('\n').map(s => s.trim()).filter(Boolean);
+            const order = Number(document.getElementById('dailyQFormOrder').value) || 0;
+            const appliesTo = document.getElementById('dailyQFormAppliesTo').value || 'all';
+            const body = { question_text: text, subquestions: subs, sort_order: order, applies_to: appliesTo };
+            try {
+                if (id) {
+                    await sbPatch('crm_daily_report_questions', `id=eq.${encodeURIComponent(id)}`, body);
+                } else {
+                    body.created_by = currentUser.login;
+                    await sbInsert('crm_daily_report_questions', body);
+                }
+                hideDailyQuestionForm();
+                showNotification('✅ Вопрос сохранён', 'success');
+                loadDailyQuestionsAdmin();
+            } catch (err) {
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+        }
+
+        // Удаление = мягкое (is_active=false), чтобы сохранить историю ответов (FK RESTRICT).
+        async function deleteDailyQuestion(id) {
+            if (!confirm('Удалить вопрос? Он перестанет показываться, но ответы в старых отчётах сохранятся.')) return;
+            try {
+                await sbPatch('crm_daily_report_questions', `id=eq.${encodeURIComponent(id)}`, { is_active: false });
+                showNotification('✅ Вопрос удалён', 'success');
+                loadDailyQuestionsAdmin();
+            } catch (err) {
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+        }
+
+        // Скрыть/показать глобальный вопрос для конкретного ТП (через override).
+        async function toggleDailyOverrideHidden(questionId) {
+            const repLogin = dailyManageScope();
+            if (repLogin === 'all') return;
+            const ov = dailyAdminOverrides.find(o => String(o.question_id) === String(questionId));
+            const newHidden = !(ov && ov.is_hidden);
+            try {
+                await sbUpsert('crm_daily_report_question_overrides',
+                    { question_id: Number(questionId), rep_login: repLogin, is_hidden: newHidden,
+                      custom_sort_order: ov ? ov.custom_sort_order : null },
+                    'question_id,rep_login');
+                showNotification(newHidden ? '🙈 Вопрос скрыт для ТП' : '👁 Вопрос показан ТП', 'success');
+                loadDailyQuestionsAdmin();
+            } catch (err) {
+                showNotification('❌ Ошибка: ' + err.message, 'error');
+            }
+        }
+
+        // Переместить вопрос вверх/вниз. Порядок нормализуем как 10,20,30... и
+        // сохраняем: в scope 'all' и для персональных — sort_order вопроса;
+        // для глобальных в контексте ТП — custom_sort_order в override.
+        async function moveDailyQuestion(questionId, dir) {
+            const scope = dailyManageScope();
+            const perRep = scope !== 'all';
+            const ovByQ = {};
+            dailyAdminOverrides.forEach(o => { ovByQ[String(o.question_id)] = o; });
+            const ordered = dailyAdminQuestions.slice().map(q => {
+                const ov = ovByQ[String(q.id)];
+                const eff = (perRep && ov && ov.custom_sort_order != null) ? Number(ov.custom_sort_order) : Number(q.sort_order || 0);
+                return { q, ov, eff };
+            }).sort((a, b) => (a.eff - b.eff) || (Number(a.q.id) - Number(b.q.id)));
+            const idx = ordered.findIndex(x => String(x.q.id) === String(questionId));
+            const swap = idx + dir;
+            if (idx < 0 || swap < 0 || swap >= ordered.length) return;
+            const tmp = ordered[idx]; ordered[idx] = ordered[swap]; ordered[swap] = tmp;
+            try {
+                for (let i = 0; i < ordered.length; i++) {
+                    const item = ordered[i];
+                    const newOrder = (i + 1) * 10;
+                    const isGlobal = (item.q.applies_to || 'all') === 'all';
+                    if (perRep && isGlobal) {
+                        await sbUpsert('crm_daily_report_question_overrides',
+                            { question_id: Number(item.q.id), rep_login: scope,
+                              is_hidden: item.ov ? !!item.ov.is_hidden : false, custom_sort_order: newOrder },
+                            'question_id,rep_login');
+                    } else {
+                        await sbPatch('crm_daily_report_questions', `id=eq.${encodeURIComponent(item.q.id)}`, { sort_order: newOrder });
+                    }
+                }
+                loadDailyQuestionsAdmin();
+            } catch (err) {
+                showNotification('❌ Ошибка порядка: ' + err.message, 'error');
             }
         }
 

@@ -13,6 +13,7 @@
     "sync:docsales": "node scripts/sync-sales.js --source=docsales",
     "check": "node --check scripts/sync-sales.js",
     "test:doctor": "node scripts/doctor-match.test.js",
-    "test": "node scripts/sales-recon.test.js && node scripts/doctor-match.test.js"
+    "test:daily": "node scripts/daily-report.test.js",
+    "test": "node scripts/sales-recon.test.js && node scripts/doctor-match.test.js && node scripts/daily-report.test.js"
   }
 }
