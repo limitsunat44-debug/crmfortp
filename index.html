@@ -1353,6 +1353,7 @@
                     <button class="nav-tab" id="dailyReportBtn" onclick="showDailyReportSection()" style="display: none;">📝 Отчёт за день</button>
                     <button class="nav-tab" id="profileBtn" onclick="showProfileSection()" style="display: none;">🧑‍💼 Профиль</button>
                     <button class="nav-tab" id="adminStatsBtn" onclick="showAdminStatsSection()" style="display: none;">📊 Статистика</button>
+                    <button class="nav-tab" id="devicesBtn" onclick="showDevicesSection()" style="display: none;">🔐 Устройства</button>
                 </div>
                 <div class="header-actions">
                     <span class="user-info" id="userInfo"></span>
@@ -1774,6 +1775,107 @@
                                 </thead>
                                 <tbody id="adminStatsBody">
                                     <tr><td colspan="5" style="text-align:center;padding:40px;">Загрузка...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== Вкладка: УСТРОЙСТВА / ЗАПРОСЫ ВХОДА (только админ) ===== -->
+            <div id="devicesSection" style="display: none;">
+                <div class="section-header">
+                    <h2 class="section-title">🔐 Устройства и запросы входа</h2>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="loadDevicesSection()">🔄 Обновить</button>
+                        <button class="btn btn-danger" onclick="forceLogoutAllAccounts()">🚪 Выйти из всех аккаунтов</button>
+                    </div>
+                </div>
+
+                <!-- Баннер, если таблицы ещё не созданы -->
+                <div id="devicesSetupBanner" class="card" style="display:none;margin-bottom:20px;border-left:4px solid var(--warning-color,#f5a623);">
+                    <div class="card-body">
+                        <h3 style="margin:0 0 8px;">⚠️ Требуется миграция базы</h3>
+                        <p style="margin:0;">Таблицы контроля устройств не найдены. Выполните SQL-миграцию <code>sql-device-approvals.sql</code> в Supabase SQL Editor — после этого вход будет разрешён только с одобренных устройств.</p>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:20px;">
+                    <div class="card-body">
+                        <div style="font-size:13px;line-height:1.7;">
+                            <div>Это устройство (браузер админа): <code id="devicesCurrentId">—</code></div>
+                            <div id="devicesSecurityInfo" style="margin-top:4px;">—</div>
+                            <div style="margin-top:6px;color:var(--text-secondary,#6b7280);">Вход разрешён только с устройств со статусом «одобрено». Неизвестное устройство создаёт заявку в списке ниже.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:20px;">
+                    <div class="card-header">
+                        <h3 style="margin:0;">⏳ Запросы на вход <span id="devicePendingCount" class="badge warn">0</span></h3>
+                    </div>
+                    <div class="card-body">
+                        <div style="overflow-x:auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>Логин</th><th>Устройство</th><th>Данные устройства</th><th>Запрошено</th><th>Действия</th></tr>
+                                </thead>
+                                <tbody id="devicePendingBody">
+                                    <tr><td colspan="5" style="text-align:center;padding:30px;">Загрузка...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:20px;">
+                    <div class="card-header">
+                        <h3 style="margin:0;">✅ Одобренные устройства <span id="deviceApprovedCount" class="badge success">0</span></h3>
+                    </div>
+                    <div class="card-body">
+                        <div style="overflow-x:auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>Логин</th><th>Устройство</th><th>Данные устройства</th><th>Одобрено</th><th>Действия</th></tr>
+                                </thead>
+                                <tbody id="deviceApprovedBody">
+                                    <tr><td colspan="5" style="text-align:center;padding:30px;">Загрузка...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:20px;">
+                    <div class="card-header">
+                        <h3 style="margin:0;">⛔ Отклонённые устройства <span id="deviceRejectedCount" class="badge error">0</span></h3>
+                    </div>
+                    <div class="card-body">
+                        <div style="overflow-x:auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>Логин</th><th>Устройство</th><th>Данные устройства</th><th>Отклонено</th><th>Действия</th></tr>
+                                </thead>
+                                <tbody id="deviceRejectedBody">
+                                    <tr><td colspan="5" style="text-align:center;padding:30px;">Загрузка...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 style="margin:0;">🕑 Последние попытки входа</h3>
+                    </div>
+                    <div class="card-body">
+                        <div style="overflow-x:auto;">
+                            <table class="table">
+                                <thead>
+                                    <tr><th>Время</th><th>Логин</th><th>Устройство</th><th>Результат</th><th>Причина</th></tr>
+                                </thead>
+                                <tbody id="deviceAttemptsBody">
+                                    <tr><td colspan="5" style="text-align:center;padding:30px;">Загрузка...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -2304,10 +2406,25 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 Инициализация CRM системы');
 
+            // Идентификатор устройства создаём сразу: он нужен и до входа
+            // (админ может заранее одобрить устройство по этому значению).
+            getDeviceId();
+
             if (currentUser) {
-                showDashboard();
-                loadData();
+                // Сессии старого формата (без device_id/session_version) не
+                // проходили проверку устройства — аннулируем их локально сразу.
+                if (isSessionStale(currentUser, null)) {
+                    forceLocalLogout('🔒 Требуется повторный вход: включён контроль устройств.');
+                } else {
+                    // showDashboard() сам инициирует сверку версии сессий.
+                    showDashboard();
+                    loadData();
+                }
             }
+
+            // Периодическая сверка версии сессий с сервером: после нажатия
+            // «Выйти из всех аккаунтов» открытые вкладки разлогинятся сами.
+            setInterval(function() { enforceSessionPolicy(true); }, SESSION_CHECK_INTERVAL_MS);
 
             document.getElementById('loginForm').addEventListener('submit', handleLogin);
             document.getElementById('searchInput').addEventListener('input', filterVisits);
@@ -2326,76 +2443,641 @@
         // АВТОРИЗАЦИЯ
         // ============================================================
 
+        // Проверка логина/пароля: сначала таблица tp_users, затем локальный
+        // список (для совместимости). Возвращает объект пользователя или null.
+        // ВАЖНО: успешная проверка кредов ещё НЕ означает вход — дальше
+        // проверяется одобрение устройства (см. handleLogin).
+        async function authenticateCredentials(login, password) {
+            const response = await fetch(
+                `${SUPABASE_URL}/rest/v1/tp_users?login=eq.${encodeURIComponent(login)}&password=eq.${encodeURIComponent(password)}&select=*`,
+                {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                }
+            );
+
+            if (!response.ok) throw new Error('Ошибка подключения');
+
+            const users = await response.json();
+            if (users && users.length > 0) {
+                const user = users[0];
+                return {
+                    id: user.id,
+                    login: user.login,
+                    name: user.name,
+                    role: user.role,
+                    sales_rep_balance: user.sales_rep_balance || 0
+                };
+            }
+
+            const localUsers = [
+                { login: 'admin1', name: 'Администратор 1', password: 'admin123', role: 'admin', sales_rep_balance: 0 },
+                { login: 'admin2', name: 'Администратор 2', password: 'admin456', role: 'admin', sales_rep_balance: 0 },
+                { login: 'sunnat', name: 'Администратор 3', password: 'sunna0909', role: 'admin', sales_rep_balance: 0 },
+                { login: 'Hakim', name: 'Торговый представитель', password: 'tp123', role: 'salesrep', sales_rep_balance: 0 }
+            ];
+            const localUser = localUsers.find(u => u.login === login && u.password === password);
+            if (localUser) {
+                return {
+                    login: localUser.login,
+                    name: localUser.name,
+                    role: localUser.role,
+                    sales_rep_balance: localUser.sales_rep_balance
+                };
+            }
+            return null;
+        }
+
         async function handleLogin(e) {
             e.preventDefault();
             const login = document.getElementById('loginInput').value.trim();
             const password = document.getElementById('passwordInput').value;
+            const deviceId = getDeviceId();
+            const meta = collectDeviceMetadata(login);
 
             showLoading(true);
             try {
-                // Проверяем пользователя в Supabase таблице tp_users
-                const response = await fetch(
-                    `${SUPABASE_URL}/rest/v1/tp_users?login=eq.${encodeURIComponent(login)}&password=eq.${encodeURIComponent(password)}&select=*`,
-                    {
-                        headers: {
-                            'apikey': SUPABASE_ANON_KEY,
-                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                        }
-                    }
-                );
+                const user = await authenticateCredentials(login, password);
 
-                if (!response.ok) throw new Error('Ошибка подключения');
-
-                const users = await response.json();
-
-                if (users && users.length > 0) {
-                    const user = users[0];
-                    currentUser = {
-                        id: user.id,
-                        login: user.login,
-                        name: user.name,
-                        role: user.role,
-                        sales_rep_balance: user.sales_rep_balance || 0
-                    };
-                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                    showNotification('✅ Добро пожаловать, ' + user.name + '!', 'success');
-                    showDashboard();
-                    await loadData();
-                } else {
-                    // Fallback: проверяем локальный список (для совместимости)
-                    const localUsers = [
-                        { login: 'admin1', name: 'Администратор 1', password: 'admin123', role: 'admin', sales_rep_balance: 0 },
-                        { login: 'admin2', name: 'Администратор 2', password: 'admin456', role: 'admin', sales_rep_balance: 0 },
-                        { login: 'sunnat', name: 'Администратор 3', password: 'sunna0909', role: 'admin', sales_rep_balance: 0 },
-                        { login: 'Hakim', name: 'Торговый представитель', password: 'tp123', role: 'salesrep', sales_rep_balance: 0 }
-                    ];
-                    const localUser = localUsers.find(u => u.login === login && u.password === password);
-                    if (localUser) {
-                        currentUser = { login: localUser.login, name: localUser.name, role: localUser.role, sales_rep_balance: localUser.sales_rep_balance };
-                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                        showNotification('✅ Добро пожаловать!', 'success');
-                        showDashboard();
-                        await loadData();
-                    } else {
-                        showNotification('❌ Неверный логин или пароль', 'error');
-                    }
+                if (!user) {
+                    showNotification('❌ Неверный логин или пароль', 'error');
+                    await logLoginAttempt(login, deviceId, false, 'bad_credentials', meta);
+                    return;
                 }
+
+                // Креды верные — но вход разрешён только с одобренного устройства.
+                let deviceRow = null;
+                deviceTablesMissing = false;
+                try {
+                    deviceRow = await fetchDeviceRow(user.login, deviceId);
+                } catch (err) {
+                    if (isTableMissingError(err)) deviceTablesMissing = true;
+                    else throw err;
+                }
+
+                const decision = deviceAccessDecision(deviceRow, {
+                    isAdmin: user.role === 'admin',
+                    tablesMissing: deviceTablesMissing
+                });
+
+                if (decision.needsRequest) {
+                    await requestDeviceApproval(user.login, deviceId, meta, deviceRow)
+                        .catch(err => console.warn('Не удалось создать заявку на устройство:', err && err.message));
+                }
+                await logLoginAttempt(user.login, deviceId, decision.allow, decision.reason, meta);
+
+                if (!decision.allow) {
+                    showNotification(decision.message, 'error');
+                    return;
+                }
+
+                // Версия сессий на момент входа — по ней потом определяем,
+                // не сбросил ли админ все сессии кнопкой в админ-панели.
+                let sessionVersion = 1;
+                if (!deviceTablesMissing) {
+                    const security = await fetchSecuritySettings().catch(() => null);
+                    if (security && security.session_version != null) sessionVersion = Number(security.session_version);
+                }
+
+                currentUser = Object.assign({}, user, {
+                    device_id: deviceId,
+                    session_version: sessionVersion,
+                    logged_in_at: new Date().toISOString()
+                });
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                showNotification(
+                    decision.setup ? decision.message : '✅ Добро пожаловать, ' + user.name + '!',
+                    decision.setup ? 'error' : 'success');
+                showDashboard();
+                await loadData();
             } catch (err) {
                 console.error('Ошибка входа:', err);
                 showNotification('❌ Ошибка подключения: ' + err.message, 'error');
+            } finally {
+                showLoading(false);
             }
-            showLoading(false);
         }
 
         function logout() {
+            clearLocalSession();
+            showNotification('👋 До свидания!', 'success');
+        }
+
+        function clearLocalSession() {
             currentUser = null;
-            localStorage.removeItem('currentUser');
+            try { localStorage.removeItem('currentUser'); } catch (e) { /* приватный режим */ }
             allUsers = [];
             adminViewingRepLogin = null;
             document.body.classList.remove('app-authed');
             showPage('loginPage');
-            document.getElementById('loginForm').reset();
-            showNotification('👋 До свидания!', 'success');
+            const form = document.getElementById('loginForm');
+            if (form) form.reset();
+        }
+
+        // ============================================================
+        // БЕЗОПАСНОСТЬ: КОНТРОЛЬ УСТРОЙСТВ И СБРОС СЕССИЙ
+        // ------------------------------------------------------------
+        // Сайт открыт публично, но ВХОД разрешён только с устройств, которые
+        // администратор одобрил во вкладке «🔐 Устройства». Требуется миграция
+        // sql-device-approvals.sql.
+        //
+        // ⚠️ Границы применимости: это контроль на уровне UI + базы. Приложение
+        // статическое и работает через anon-ключ, поэтому подготовленный человек
+        // может обратиться к REST напрямую. Настоящая привязка к устройству
+        // требует серверной авторизации, проверяющей device_id при выдаче токена.
+        // ============================================================
+        const DEVICE_ID_KEY = 'crm_device_id';
+        const DEVICE_META_KEY = 'crm_device_meta';
+        const DEVICES_TABLE = 'crm_approved_devices';
+        const LOGIN_ATTEMPTS_TABLE = 'crm_login_attempts';
+        const SECURITY_TABLE = 'crm_security_settings';
+        // Периодическая сверка версии сессий с сервером
+        const SESSION_CHECK_INTERVAL_MS = 60000;
+        // Минимальный интервал между сверками при навигации (чтобы не спамить REST)
+        const SESSION_CHECK_THROTTLE_MS = 20000;
+
+        let deviceTablesMissing = false;   // true → миграция ещё не применена
+        let lastSessionCheckAt = 0;
+
+        // ---- ЧИСТЫЕ (тестируемые) функции ----
+
+        // Ошибка PostgREST «таблицы нет» — значит миграция не применена.
+        function isTableMissingError(err) {
+            const msg = String((err && err.message) || err || '');
+            return /HTTP 404/.test(msg)
+                || /PGRST205/.test(msg)
+                || /Could not find the table/i.test(msg)
+                || /does not exist/i.test(msg);
+        }
+
+        // Решение о входе для пары (пользователь, устройство). Креды на этом
+        // шаге уже проверены.
+        //   deviceRow — строка crm_approved_devices или null;
+        //   opts.isAdmin       — роль пользователя;
+        //   opts.tablesMissing — миграция не применена.
+        // Возвращает: allow, status, reason, needsRequest (создать/обновить
+        // заявку), setup (нужен баннер миграции), message (текст пользователю).
+        function deviceAccessDecision(deviceRow, opts) {
+            const o = opts || {};
+            if (o.tablesMissing) {
+                // Практический компромисс: админа не запираем снаружи, иначе
+                // применить миграцию будет некому. Остальным — fail closed.
+                if (o.isAdmin) {
+                    return { allow: true, status: 'setup', reason: 'tables_missing', needsRequest: false, setup: true,
+                        message: '⚠️ Вход выполнен, но контроль устройств НЕ активен: примените sql-device-approvals.sql' };
+                }
+                return { allow: false, status: 'setup', reason: 'tables_missing', needsRequest: false, setup: true,
+                    message: '⛔ Вход недоступен: администратор ещё не настроил проверку устройств' };
+            }
+
+            const status = deviceRow && deviceRow.status ? String(deviceRow.status) : null;
+
+            if (status === 'approved') {
+                return { allow: true, status: 'approved', reason: 'ok', needsRequest: false, setup: false,
+                    message: '✅ Устройство одобрено' };
+            }
+            if (status === 'rejected') {
+                // Отклонённое устройство НЕ возвращаем в pending автоматически:
+                // иначе отклонение обходится повторными попытками входа.
+                return { allow: false, status: 'rejected', reason: 'device_rejected', needsRequest: false, setup: false,
+                    message: '⛔ Это устройство отклонено администратором. Обратитесь к администратору.' };
+            }
+            if (status === 'pending') {
+                return { allow: false, status: 'pending', reason: 'device_pending', needsRequest: true, setup: false,
+                    message: '⏳ Запрос на это устройство уже отправлен и ждёт подтверждения администратора' };
+            }
+            return { allow: false, status: 'none', reason: 'device_unknown', needsRequest: true, setup: false,
+                message: '🔒 Устройство не одобрено. Запрос отправлен администратору — дождитесь подтверждения.' };
+        }
+
+        // Нужно ли аннулировать локальную сессию.
+        //   session  — объект из localStorage.currentUser;
+        //   security — строка crm_security_settings или null (сервер недоступен).
+        function isSessionStale(session, security) {
+            if (!session) return false;                      // нечего аннулировать
+            // Сессия старого формата: выдана до контроля устройств.
+            if (!session.device_id || session.session_version == null) return true;
+            if (!security) return false;                     // не выкидываем при сетевой ошибке
+            if (security.session_version != null
+                && Number(security.session_version) !== Number(session.session_version)) return true;
+            if (security.force_logout_at) {
+                const cutoff = Date.parse(security.force_logout_at);
+                const issued = Date.parse(session.logged_in_at || '');
+                if (!isNaN(cutoff) && (isNaN(issued) || issued < cutoff)) return true;
+            }
+            return false;
+        }
+
+        // Похоже ли значение на наш device_id (UUID/hex). Мусор в localStorage
+        // (напр. подставленный вручную) заменяем новым идентификатором.
+        function normalizeDeviceId(raw) {
+            const s = String(raw == null ? '' : raw).trim();
+            const looksRandom = /^[0-9a-fA-F-]+$/.test(s) && s.length >= 16 && s.length <= 64;
+            return looksRandom ? s : null;
+        }
+
+        // Короткий вид device_id для админки.
+        function shortDeviceId(id) {
+            const s = String(id == null ? '' : id);
+            if (!s) return '—';
+            return s.length <= 12 ? s : s.slice(0, 8) + '…' + s.slice(-4);
+        }
+
+        // Человекочитаемая сводка user agent. Без внешних библиотек и без
+        // фингерпринтинга — только для отображения админу.
+        function summarizeUserAgent(ua) {
+            const s = String(ua == null ? '' : ua);
+            if (!s) return 'неизвестный браузер';
+            // Порядок важен: Edge/Opera/Yandex тоже содержат «Chrome/…» в UA.
+            const browsers = [
+                ['Edge', /Edg(?:e|A|iOS)?\/(\d+)/],
+                ['Opera', /OPR\/(\d+)/],
+                ['Yandex', /YaBrowser\/(\d+)/],
+                ['Firefox', /(?:Firefox|FxiOS)\/(\d+)/],
+                ['Chrome', /(?:Chrome|CriOS)\/(\d+)/],
+                ['Safari', /Version\/(\d+).*Safari/]
+            ];
+            let browser = 'браузер';
+            for (let i = 0; i < browsers.length; i++) {
+                const m = browsers[i][1].exec(s);
+                if (m) { browser = browsers[i][0] + ' ' + m[1]; break; }
+            }
+            let os = 'неизвестная ОС';
+            if (/Windows/i.test(s)) os = 'Windows';
+            else if (/Android/i.test(s)) os = 'Android';
+            else if (/iPhone|iPad|iPod/i.test(s)) os = 'iOS';
+            else if (/Mac OS X|Macintosh/i.test(s)) os = 'macOS';
+            else if (/Linux/i.test(s)) os = 'Linux';
+            return browser + ' · ' + os;
+        }
+
+        // ---- Идентификатор и метаданные устройства ----
+
+        function randomDeviceId() {
+            try {
+                if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                    return window.crypto.randomUUID();
+                }
+                if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+                    const bytes = new Uint8Array(16);
+                    window.crypto.getRandomValues(bytes);
+                    return Array.from(bytes, b => ('0' + b.toString(16)).slice(-2)).join('');
+                }
+            } catch (e) { /* ниже — запасной вариант */ }
+            return 'f' + Date.now().toString(16) + Math.random().toString(16).slice(2, 14);
+        }
+
+        function getDeviceId() {
+            let id = null;
+            try { id = normalizeDeviceId(localStorage.getItem(DEVICE_ID_KEY)); } catch (e) { id = null; }
+            if (!id) {
+                id = randomDeviceId();
+                try { localStorage.setItem(DEVICE_ID_KEY, id); } catch (e) { /* приватный режим */ }
+            }
+            return id;
+        }
+
+        // Безопасные для показа админу данные об устройстве. Никаких canvas/
+        // audio-отпечатков — только то, что браузер отдаёт штатно.
+        function collectDeviceMetadata(requestedLogin) {
+            const nowIso = new Date().toISOString();
+            let firstSeen = nowIso;
+            try {
+                const cached = JSON.parse(localStorage.getItem(DEVICE_META_KEY) || 'null');
+                if (cached && cached.first_seen) firstSeen = cached.first_seen;
+            } catch (e) { /* повреждённый кэш игнорируем */ }
+
+            const nav = window.navigator || {};
+            const ua = String(nav.userAgent || '');
+            let timezone = null;
+            try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null; } catch (e) { timezone = null; }
+
+            const meta = {
+                ua: ua.slice(0, 400),
+                ua_summary: summarizeUserAgent(ua),
+                platform: String(nav.platform || (nav.userAgentData && nav.userAgentData.platform) || '') || null,
+                language: String(nav.language || '') || null,
+                languages: Array.isArray(nav.languages) ? nav.languages.slice(0, 5) : null,
+                timezone: timezone,
+                screen: window.screen ? `${window.screen.width}x${window.screen.height}` : null,
+                touch: typeof nav.maxTouchPoints === 'number' ? nav.maxTouchPoints > 0 : null,
+                first_seen: firstSeen,
+                last_seen: nowIso,
+                requested_login: requestedLogin || null,
+                last_ip: null   // фронтенд IP не знает; заполняется только серверной частью
+            };
+
+            try { localStorage.setItem(DEVICE_META_KEY, JSON.stringify({ first_seen: firstSeen })); } catch (e) { /* ok */ }
+            return meta;
+        }
+
+        // ---- REST-обёртки для контроля устройств ----
+
+        async function fetchDeviceRow(login, deviceId) {
+            const rows = await sbSelect(`${DEVICES_TABLE}?user_login=eq.${encodeURIComponent(login)}`
+                + `&device_id=eq.${encodeURIComponent(deviceId)}&select=*&limit=1`);
+            return (rows && rows[0]) || null;
+        }
+
+        // Создать заявку на устройство либо обновить метаданные существующей.
+        // requested_at у существующей заявки не трогаем — важна дата первой.
+        async function requestDeviceApproval(login, deviceId, meta, existingRow) {
+            const patch = { status: 'pending', device_name: meta.ua_summary, metadata: meta };
+            if (existingRow && existingRow.id) {
+                await sbPatch(DEVICES_TABLE, `id=eq.${encodeURIComponent(existingRow.id)}`, patch);
+                return;
+            }
+            try {
+                await sbInsert(DEVICES_TABLE, Object.assign({ user_login: login, device_id: deviceId }, patch));
+            } catch (err) {
+                // Гонка: заявку успели создать в другой вкладке — просто обновим её.
+                await sbPatch(DEVICES_TABLE,
+                    `user_login=eq.${encodeURIComponent(login)}&device_id=eq.${encodeURIComponent(deviceId)}&status=eq.pending`,
+                    { device_name: meta.ua_summary, metadata: meta });
+            }
+        }
+
+        // Журнал попыток входа. Пароли не пишем. Ошибка журнала не ломает вход.
+        async function logLoginAttempt(login, deviceId, success, reason, meta) {
+            try {
+                await sbInsert(LOGIN_ATTEMPTS_TABLE, {
+                    user_login: login || null,
+                    device_id: deviceId || null,
+                    success: !!success,
+                    reason: reason || null,
+                    metadata: {
+                        ua_summary: (meta && meta.ua_summary) || null,
+                        platform: (meta && meta.platform) || null,
+                        timezone: (meta && meta.timezone) || null,
+                        last_ip: null
+                    }
+                });
+            } catch (e) {
+                console.warn('Не удалось записать попытку входа:', e && e.message);
+            }
+        }
+
+        async function fetchSecuritySettings() {
+            const rows = await sbSelect(`${SECURITY_TABLE}?id=eq.1&select=*&limit=1`);
+            return (rows && rows[0]) || null;
+        }
+
+        // ---- Аннулирование сессий ----
+
+        function forceLocalLogout(message) {
+            clearLocalSession();
+            showNotification(message || '🔒 Сессия завершена. Войдите снова.', 'error');
+        }
+
+        // Сверить локальную сессию с сервером и аннулировать её при
+        // расхождении. force=false — с троттлингом (вызов при навигации).
+        async function enforceSessionPolicy(force) {
+            if (!currentUser) return;
+
+            if (isSessionStale(currentUser, null)) {
+                forceLocalLogout('🔒 Требуется повторный вход: включён контроль устройств.');
+                return;
+            }
+
+            const now = Date.now();
+            if (!force && now - lastSessionCheckAt < SESSION_CHECK_THROTTLE_MS) return;
+            lastSessionCheckAt = now;
+
+            let security = null;
+            try {
+                security = await fetchSecuritySettings();
+            } catch (err) {
+                // Сервер недоступен или миграция не применена — не выкидываем.
+                if (isTableMissingError(err)) deviceTablesMissing = true;
+                return;
+            }
+
+            if (isSessionStale(currentUser, security)) {
+                forceLocalLogout('🔒 Администратор сбросил все сессии. Войдите снова.');
+            }
+        }
+
+        // ---- Админ-вкладка «Устройства» ----
+
+        function showDevicesSection() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            openSubSection('devicesSection');
+            loadDevicesSection();
+        }
+
+        function showDevicesSetupBanner(show) {
+            const b = document.getElementById('devicesSetupBanner');
+            if (b) b.style.display = show ? 'block' : 'none';
+        }
+
+        function deviceTs(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return isNaN(d.getTime()) ? String(iso) : d.toLocaleString('ru-RU');
+        }
+
+        async function loadDevicesSection() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            const cur = document.getElementById('devicesCurrentId');
+            if (cur) cur.textContent = getDeviceId();
+
+            try {
+                const [devices, attempts, security] = await Promise.all([
+                    sbSelect(`${DEVICES_TABLE}?select=*&order=requested_at.desc&limit=500`),
+                    sbSelect(`${LOGIN_ATTEMPTS_TABLE}?select=*&order=created_at.desc&limit=50`).catch(() => []),
+                    fetchSecuritySettings().catch(() => null)
+                ]);
+                deviceTablesMissing = false;
+                showDevicesSetupBanner(false);
+                renderDeviceTables(devices || []);
+                renderLoginAttempts(attempts || []);
+                renderSecurityInfo(security);
+            } catch (err) {
+                console.error('Ошибка загрузки устройств:', err);
+                if (isTableMissingError(err)) {
+                    deviceTablesMissing = true;
+                    showDevicesSetupBanner(true);
+                }
+                const msg = `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--error-color);">Ошибка: ${escapeHtml(err.message)}</td></tr>`;
+                ['devicePendingBody', 'deviceApprovedBody', 'deviceRejectedBody', 'deviceAttemptsBody'].forEach(id => {
+                    const b = document.getElementById(id);
+                    if (b) b.innerHTML = msg;
+                });
+            }
+        }
+
+        function deviceMetaHtml(row) {
+            const m = row.metadata || {};
+            const parts = [];
+            const name = row.device_name || m.ua_summary;
+            if (name) parts.push('<strong>' + escapeHtml(name) + '</strong>');
+            if (m.platform) parts.push('платформа: ' + escapeHtml(m.platform));
+            if (m.language) parts.push('язык: ' + escapeHtml(m.language));
+            if (m.timezone) parts.push('таймзона: ' + escapeHtml(m.timezone));
+            if (m.screen) parts.push('экран: ' + escapeHtml(m.screen));
+            if (m.requested_login) parts.push('вводил логин: ' + escapeHtml(m.requested_login));
+            if (m.first_seen) parts.push('впервые: ' + escapeHtml(deviceTs(m.first_seen)));
+            if (m.last_seen) parts.push('последняя попытка: ' + escapeHtml(deviceTs(m.last_seen)));
+            parts.push('IP: ' + (m.last_ip ? escapeHtml(m.last_ip) : '— (не собирается на фронтенде)'));
+            return parts.join('<br>');
+        }
+
+        function deviceActorBadge(login) {
+            return login ? '<br><span class="badge">' + escapeHtml(login) + '</span>' : '';
+        }
+
+        // Одна из трёх таблиц устройств. Первые три колонки у них одинаковые,
+        // различаются только колонка даты и набор кнопок.
+        function renderDeviceTable(bodyId, countId, rows, emptyText, dateCell, actions) {
+            const count = document.getElementById(countId);
+            if (count) count.textContent = String(rows.length);
+            const tbody = document.getElementById(bodyId);
+            if (!tbody) return;
+            tbody.innerHTML = rows.length
+                ? rows.map(r => `<tr>
+                        <td><strong>${escapeHtml(r.user_login)}</strong></td>
+                        <td><code title="${escapeHtml(r.device_id)}">${escapeHtml(shortDeviceId(r.device_id))}</code></td>
+                        <td style="font-size:12px;line-height:1.6;">${deviceMetaHtml(r)}</td>
+                        <td>${dateCell(r)}</td>
+                        <td style="white-space:nowrap;">${actions(r)}</td>
+                    </tr>`).join('')
+                : `<tr><td colspan="5" style="text-align:center;padding:30px;">${emptyText}</td></tr>`;
+        }
+
+        function renderDeviceTables(rows) {
+            renderDeviceTable('devicePendingBody', 'devicePendingCount',
+                rows.filter(r => r.status === 'pending'), 'Нет новых запросов на вход',
+                r => escapeHtml(deviceTs(r.requested_at)),
+                r => `<button class="btn btn-sm btn-success" onclick="approveDevice(${Number(r.id)})">✓ Одобрить</button>
+                      <button class="btn btn-sm btn-danger" onclick="rejectDevice(${Number(r.id)})">✕ Отклонить</button>`);
+
+            renderDeviceTable('deviceApprovedBody', 'deviceApprovedCount',
+                rows.filter(r => r.status === 'approved'), 'Пока нет одобренных устройств',
+                r => escapeHtml(deviceTs(r.approved_at)) + deviceActorBadge(r.approved_by),
+                r => `<button class="btn btn-sm btn-danger" onclick="revokeDeviceAccess(${Number(r.id)})">🚫 Отозвать</button>`);
+
+            renderDeviceTable('deviceRejectedBody', 'deviceRejectedCount',
+                rows.filter(r => r.status !== 'pending' && r.status !== 'approved'), 'Отклонённых устройств нет',
+                r => escapeHtml(deviceTs(r.rejected_at || r.updated_at)) + deviceActorBadge(r.rejected_by),
+                r => `<button class="btn btn-sm btn-success" onclick="approveDevice(${Number(r.id)})">✓ Одобрить</button>`);
+        }
+
+        function renderLoginAttempts(attempts) {
+            const tbody = document.getElementById('deviceAttemptsBody');
+            if (!tbody) return;
+            const reasonText = {
+                ok: 'вход разрешён',
+                bad_credentials: 'неверный логин/пароль',
+                device_unknown: 'устройство неизвестно — создана заявка',
+                device_pending: 'заявка ждёт подтверждения',
+                device_rejected: 'устройство отклонено',
+                tables_missing: 'миграция не применена'
+            };
+            tbody.innerHTML = attempts.length
+                ? attempts.map(a => {
+                    const m = a.metadata || {};
+                    return `<tr>
+                        <td>${escapeHtml(deviceTs(a.created_at))}</td>
+                        <td>${escapeHtml(a.user_login || '—')}</td>
+                        <td>${escapeHtml(shortDeviceId(a.device_id))}${m.ua_summary ? '<br><span style="font-size:11px;">' + escapeHtml(m.ua_summary) + '</span>' : ''}</td>
+                        <td>${a.success ? '<span class="badge success">успех</span>' : '<span class="badge error">отказ</span>'}</td>
+                        <td>${escapeHtml(reasonText[a.reason] || a.reason || '—')}</td>
+                    </tr>`;
+                }).join('')
+                : '<tr><td colspan="5" style="text-align:center;padding:30px;">Попыток входа пока нет</td></tr>';
+        }
+
+        function renderSecurityInfo(security) {
+            const el = document.getElementById('devicesSecurityInfo');
+            if (!el) return;
+            if (!security) {
+                el.textContent = 'Версия сессий недоступна (миграция не применена?)';
+                return;
+            }
+            el.innerHTML = 'Текущая версия сессий: <strong>' + escapeHtml(String(security.session_version)) + '</strong>'
+                + (security.force_logout_at ? ' · последний сброс: <strong>' + escapeHtml(deviceTs(security.force_logout_at)) + '</strong>' : '')
+                + (security.updated_by ? ' · кем: <strong>' + escapeHtml(security.updated_by) + '</strong>' : '');
+        }
+
+        async function setDeviceStatus(id, status) {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            const body = { status: status };
+            if (status === 'approved') {
+                body.approved_by = currentUser.login;
+                body.approved_at = new Date().toISOString();
+            } else if (status === 'rejected') {
+                body.rejected_by = currentUser.login;
+                body.rejected_at = new Date().toISOString();
+            }
+            showLoading(true);
+            try {
+                await sbPatch(DEVICES_TABLE, `id=eq.${encodeURIComponent(id)}`, body);
+                showNotification(status === 'approved'
+                    ? '✅ Устройство одобрено — пользователь может войти'
+                    : '⛔ Доступ с устройства запрещён', 'success');
+                await loadDevicesSection();
+            } catch (err) {
+                console.error('Ошибка обновления устройства:', err);
+                showNotification('❌ Не удалось обновить устройство: ' + err.message, 'error');
+            }
+            showLoading(false);
+        }
+
+        function approveDevice(id) {
+            return setDeviceStatus(id, 'approved');
+        }
+
+        function rejectDevice(id) {
+            if (!confirm('Отклонить это устройство? Пользователь не сможет войти с него, пока вы не одобрите его вручную.')) return Promise.resolve();
+            return setDeviceStatus(id, 'rejected');
+        }
+
+        function revokeDeviceAccess(id) {
+            if (!confirm('Отозвать доступ с этого устройства?\n\nВНИМАНИЕ: уже открытая сессия пользователя сама не закроется — чтобы выкинуть всех сразу, нажмите «Выйти из всех аккаунтов».')) return Promise.resolve();
+            return setDeviceStatus(id, 'rejected');
+        }
+
+        // Сброс ВСЕХ сессий: инкремент session_version в crm_security_settings.
+        // Открытые вкладки разлогинятся сами при следующей сверке (≤ 1 минуты).
+        async function forceLogoutAllAccounts() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            if (!confirm('Сбросить ВСЕ активные сессии?\n\nВсе пользователи (включая вас) будут разлогинены и должны войти заново с одобренного устройства.')) return;
+
+            showLoading(true);
+            try {
+                let newVersion = null;
+                try {
+                    // Атомарный инкремент на стороне БД (два админа не перезапишут друг друга).
+                    const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/crm_bump_session_version`, {
+                        method: 'POST',
+                        headers: sbHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify({ p_admin_login: currentUser.login })
+                    });
+                    if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + await r.text());
+                    const data = await r.json();
+                    const row = Array.isArray(data) ? data[0] : data;
+                    newVersion = row && (row.new_session_version != null ? row.new_session_version : row.session_version);
+                } catch (rpcErr) {
+                    // Запасной путь, если RPC-функции нет (миграция применена частично).
+                    console.warn('RPC crm_bump_session_version недоступна:', rpcErr && rpcErr.message);
+                    const cur = await fetchSecuritySettings();
+                    newVersion = Number((cur && cur.session_version) || 1) + 1;
+                    await sbUpsert(SECURITY_TABLE, {
+                        id: 1,
+                        session_version: newVersion,
+                        force_logout_at: new Date().toISOString(),
+                        updated_by: currentUser.login
+                    }, 'id');
+                }
+                showLoading(false);
+                forceLocalLogout(`🚪 Все сессии сброшены (версия ${newVersion == null ? '—' : newVersion}). Войдите снова.`);
+            } catch (err) {
+                console.error('Ошибка сброса сессий:', err);
+                showLoading(false);
+                showNotification('❌ Не удалось сбросить сессии: ' + err.message, 'error');
+            }
         }
 
         // ============================================================
@@ -2423,7 +3105,7 @@
             // Кнопка возврата на дашборд всегда видна после входа
             document.getElementById('dashboardNavBtn').style.display = 'inline-flex';
             // Кнопки, доступные только администратору
-            ['manageRepsBtn','adminStatsBtn'].forEach(id =>
+            ['manageRepsBtn','adminStatsBtn','devicesBtn'].forEach(id =>
                 document.getElementById(id).style.display = isAdmin ? 'inline-flex' : 'none');
             // Кнопки, доступные обеим ролям
             ['doctorsBtn','salesReconBtn','paymentsBtn','planBtn','dailyReportBtn','profileBtn'].forEach(id =>
@@ -2443,13 +3125,16 @@
             }
 
             updateDashboard();
+            // Сверка версии сессий (с троттлингом) при заходе на главную.
+            enforceSessionPolicy(false);
         }
 
         // Список идентификаторов новых вкладок-секций
         const SUB_SECTION_IDS = ['doctorsSection','manageRepsSection','salesReconSection',
-            'paymentsSection','planSection','dailyReportSection','profileSection','adminStatsSection'];
+            'paymentsSection','planSection','dailyReportSection','profileSection','adminStatsSection',
+            'devicesSection'];
         const NAV_BTN_IDS = ['dashboardNavBtn','doctorsBtn','manageRepsBtn','salesReconBtn',
-            'paymentsBtn','planBtn','dailyReportBtn','profileBtn','adminStatsBtn'];
+            'paymentsBtn','planBtn','dailyReportBtn','profileBtn','adminStatsBtn','devicesBtn'];
         // Соответствие секция → кнопка навигации (для подсветки активной вкладки)
         const SECTION_TO_NAV_BTN = {
             doctorsSection: 'doctorsBtn',
@@ -2459,7 +3144,8 @@
             planSection: 'planBtn',
             dailyReportSection: 'dailyReportBtn',
             profileSection: 'profileBtn',
-            adminStatsSection: 'adminStatsBtn'
+            adminStatsSection: 'adminStatsBtn',
+            devicesSection: 'devicesBtn'
         };
         // Соответствие кнопки верхней навигации → кнопка нижней навигации (mobile)
         const NAV_BTN_TO_BOTTOM = {
@@ -2500,6 +3186,9 @@
             const el = document.getElementById(sectionId);
             if (el) el.style.display = 'block';
             setActiveNav(SECTION_TO_NAV_BTN[sectionId]);
+            // Сверка версии сессий при навигации (с троттлингом): если админ
+            // сбросил сессии, пользователь будет разлогинен на первом же переходе.
+            enforceSessionPolicy(false);
         }
 
         // Возвращает логин ТП, чьи данные сейчас активны (для admin — выбранный, иначе сам)
